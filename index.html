@@ -533,6 +533,33 @@
                 }
             };
 
+            // ── DEVELOPMENT COSTS: precompute before return() ──────────────────
+            const costCP = constructionPeriods || 24;
+            const costPeriods = Array.from({length: costCP+1}, (_,i) => i);
+            const costPLbl = (p) => (modelType === 'annual' ? 'Y' : 'M') + p;
+
+            const costAssetList = [];
+            if (showResidential) costAssetList.push({ key:'residential', label:'Residential', color:'#1d4ed8', bg:'#dbeafe', txt:'#1e3a8a', costs:resCosts, setCosts:setResCosts, ta:residentialTotalArea, na:residentialNetArea, gfa:residentialGFA, bua:residentialBUA, aPct:residentialPercent });
+            if (showHospitality) costAssetList.push({ key:'hospitality', label:'Hospitality', color:'#15803d', bg:'#dcfce7', txt:'#14532d', costs:hospCosts, setCosts:setHospCosts, ta:hospitalityTotalArea, na:hospitalityNetArea, gfa:hospitalityGFA, bua:hospitalityBUA, aPct:hospitalityPercent });
+            costAssetList.push({ key:'retail', label:'Retail', color:'#7c3aed', bg:'#ede9fe', txt:'#4c1d95', costs:retCosts, setCosts:setRetCosts, ta:retailTotalArea, na:retailNetArea, gfa:retailGFA, bua:retailBUA, aPct:retailPercent });
+
+            const costAA = costAssetList.find(a => a.key === costAsset) || costAssetList[0];
+            const costLiveCosts = withLiveLand(costAA.costs, totalLandArea, landValuePerSqm, cashPercent, costAA.aPct);
+            const costGrandTotal = costLiveCosts.reduce((s,c) => s + calcCost(c, costLiveCosts, costAA.ta, costAA.na, costAA.gfa, costAA.bua, costAA.aPct, totalLandArea, landValuePerSqm, cashPercent), 0);
+            const costCapexRows = costLiveCosts.map(item => {
+                const tot = calcCost(item, costLiveCosts, costAA.ta, costAA.na, costAA.gfa, costAA.bua, costAA.aPct, totalLandArea, landValuePerSqm, cashPercent);
+                const pv = validPhase(item.phase, item.start, item.end);
+                const dist = pv.ok ? distCost(tot, item.start, item.end, item.phase, costCP) : Array(costCP+1).fill(0);
+                return {id:item.id, name:item.name, tot, dist};
+            });
+            const costPeriodTotals = costPeriods.map(p => costCapexRows.reduce((s,r) => s+(r.dist[p]||0), 0));
+            const costAllGrand = costAssetList.reduce((s, a) => {
+                const lc = withLiveLand(a.costs, totalLandArea, landValuePerSqm, cashPercent, a.aPct);
+                return s + lc.reduce((ss,c) => ss + calcCost(c, lc, a.ta, a.na, a.gfa, a.bua, a.aPct, totalLandArea, landValuePerSqm, cashPercent), 0);
+            }, 0);
+            const costSEdit = { backgroundColor:'#fef3c7', color:'#1e40af', fontWeight:'600', border:'1px solid #fbbf24', borderRadius:'4px', padding:'0.3rem 0.5rem', width:'100%', fontSize:'0.78rem' };
+            const costSLock = { backgroundColor:'#f3f4f6', color:'#9ca3af', border:'1px solid #e5e7eb', borderRadius:'4px', padding:'0.3rem 0.5rem', width:'100%', fontSize:'0.78rem', cursor:'not-allowed' };
+
             return (
                 <div className="min-h-screen">
                     {/* Header */}
@@ -1570,278 +1597,234 @@
                                 )}
 
                                 {/* Development Costs Tab */}
-                                {activeTab === 'costs' && (() => {
-                                    const cp = constructionPeriods || 24;
-                                    const periods = Array.from({length: cp+1}, (_,i) => i);
-                                    const pLbl = p => (modelType === 'annual' ? 'Y' : 'M') + p;
-
-                                    const assetList = [];
-                                    if (showResidential) assetList.push({
-                                        key:'residential', label:'Residential', color:'#1d4ed8', bg:'#dbeafe', txt:'#1e3a8a',
-                                        costs:resCosts, setCosts:setResCosts,
-                                        ta:residentialTotalArea, na:residentialNetArea, gfa:residentialGFA, bua:residentialBUA, aPct:residentialPercent
-                                    });
-                                    if (showHospitality) assetList.push({
-                                        key:'hospitality', label:'Hospitality', color:'#15803d', bg:'#dcfce7', txt:'#14532d',
-                                        costs:hospCosts, setCosts:setHospCosts,
-                                        ta:hospitalityTotalArea, na:hospitalityNetArea, gfa:hospitalityGFA, bua:hospitalityBUA, aPct:hospitalityPercent
-                                    });
-                                    assetList.push({
-                                        key:'retail', label:'Retail', color:'#7c3aed', bg:'#ede9fe', txt:'#4c1d95',
-                                        costs:retCosts, setCosts:setRetCosts,
-                                        ta:retailTotalArea, na:retailNetArea, gfa:retailGFA, bua:retailBUA, aPct:retailPercent
-                                    });
-
-                                    const activeAsset = assetList.find(a => a.key === costAsset) || assetList[0];
-                                    const aa = activeAsset;
-                                    const liveCosts = withLiveLand(aa.costs, totalLandArea, landValuePerSqm, cashPercent, aa.aPct);
-                                    const grandTotal = liveCosts.reduce((s,c) => s + calcCost(c, liveCosts, aa.ta, aa.na, aa.gfa, aa.bua, aa.aPct, totalLandArea, landValuePerSqm, cashPercent), 0);
-
-                                    const sEdit = { backgroundColor:'#fef3c7', color:'#1e40af', fontWeight:'600', border:'1px solid #fbbf24', borderRadius:'4px', padding:'0.3rem 0.5rem', width:'100%', fontSize:'0.78rem' };
-                                    const sLock = { backgroundColor:'#f3f4f6', color:'#9ca3af', border:'1px solid #e5e7eb', borderRadius:'4px', padding:'0.3rem 0.5rem', width:'100%', fontSize:'0.78rem', cursor:'not-allowed' };
-
-                                    const capexRows = liveCosts.map(item => {
-                                        const tot = calcCost(item, liveCosts, aa.ta, aa.na, aa.gfa, aa.bua, aa.aPct, totalLandArea, landValuePerSqm, cashPercent);
-                                        const pv = validPhase(item.phase, item.start, item.end);
-                                        const dist = pv.ok ? distCost(tot, item.start, item.end, item.phase, cp) : Array(cp+1).fill(0);
-                                        return {id:item.id, name:item.name, tot, dist};
-                                    });
-                                    const periodTotals = periods.map(p => capexRows.reduce((s,r) => s+(r.dist[p]||0), 0));
-
-                                    const allGrand = assetList.reduce((s, a) => {
-                                        const lc = withLiveLand(a.costs, totalLandArea, landValuePerSqm, cashPercent, a.aPct);
-                                        return s + lc.reduce((ss,c) => ss + calcCost(c, lc, a.ta, a.na, a.gfa, a.bua, a.aPct, totalLandArea, landValuePerSqm, cashPercent), 0);
-                                    }, 0);
-
-                                    return (
-                                        <div>
-                                            {/* Summary Banner */}
-                                            <div className="module-card p-5 mb-5">
-                                                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem'}}>
-                                                    <div>
-                                                        <h3 style={{fontSize:'1.35rem', fontWeight:'700', color:'#1f2937', margin:0}}>Development Costs</h3>
-                                                        <p style={{fontSize:'0.8rem', color:'#6b7280', margin:'3px 0 0'}}>Cost items, phasing and CAPEX schedule per asset class</p>
-                                                    </div>
-                                                    <div style={{textAlign:'right'}}>
-                                                        <div style={{fontSize:'0.7rem', color:'#6b7280'}}>Total All Assets</div>
-                                                        <div style={{fontSize:'1.5rem', fontWeight:'800', color:'#7c3aed'}}>{fmtCur(allGrand)}</div>
-                                                    </div>
+                                {activeTab === 'costs' && (
+                                    <div>
+                                        {/* Summary Banner */}
+                                        <div className="module-card p-5 mb-5">
+                                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem'}}>
+                                                <div>
+                                                    <h3 style={{fontSize:'1.35rem', fontWeight:'700', color:'#1f2937', margin:0}}>Development Costs</h3>
+                                                    <p style={{fontSize:'0.8rem', color:'#6b7280', margin:'3px 0 0'}}>Cost items, phasing and CAPEX schedule per asset class</p>
                                                 </div>
-                                                <div style={{display:'flex', gap:'0.75rem', flexWrap:'wrap'}}>
-                                                    {assetList.map(a => {
-                                                        const lc = withLiveLand(a.costs, totalLandArea, landValuePerSqm, cashPercent, a.aPct);
-                                                        const tot = lc.reduce((s,c) => s + calcCost(c, lc, a.ta, a.na, a.gfa, a.bua, a.aPct, totalLandArea, landValuePerSqm, cashPercent), 0);
-                                                        return (
-                                                            <div key={a.key} style={{padding:'0.65rem 1rem', background:a.bg, borderRadius:'8px', border:'1px solid ' + a.color + '40', minWidth:'140px'}}>
-                                                                <div style={{fontSize:'0.65rem', color:a.color}}>{a.label}</div>
-                                                                <div style={{fontSize:'0.95rem', fontWeight:'700', color:a.txt}}>{fmtCur(tot)}</div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    <div style={{padding:'0.65rem 1rem', background:'#f8fafc', borderRadius:'8px', border:'1px solid #e2e8f0', minWidth:'140px'}}>
-                                                        <div style={{fontSize:'0.65rem', color:'#64748b'}}>Construction Periods</div>
-                                                        <div style={{fontSize:'0.95rem', fontWeight:'700', color:'#1e293b'}}>{cp} {modelType==='annual'?'Yrs':'Mo'}</div>
-                                                    </div>
+                                                <div style={{textAlign:'right'}}>
+                                                    <div style={{fontSize:'0.7rem', color:'#6b7280'}}>Total All Assets</div>
+                                                    <div style={{fontSize:'1.5rem', fontWeight:'800', color:'#7c3aed'}}>{fmtCur(costAllGrand)}</div>
                                                 </div>
                                             </div>
-
-                                            {/* Asset Tabs */}
-                                            <div style={{display:'flex', gap:'0.5rem', marginBottom:'1rem'}}>
-                                                {assetList.map(a => (
-                                                    <button key={a.key}
-                                                        onClick={() => setCostAsset(a.key)}
-                                                        style={{padding:'0.45rem 1.2rem', borderRadius:'8px', border:'none', cursor:'pointer', fontWeight:'600', fontSize:'0.85rem',
-                                                            background: costAsset===a.key ? a.color : '#f1f5f9',
-                                                            color: costAsset===a.key ? '#fff' : '#475569'}}>
-                                                        {a.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-
-                                            {/* Active Asset Panel */}
-                                            <div className="module-card p-5">
-                                                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem'}}>
-                                                    <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-                                                        <div style={{width:'4px', height:'32px', background:aa.color, borderRadius:'3px'}}></div>
-                                                        <div>
-                                                            <div style={{fontWeight:'700', fontSize:'1.05rem', color:'#1f2937'}}>{aa.label}</div>
-                                                            <div style={{fontSize:'0.7rem', color:'#6b7280'}}>
-                                                                Total: <b>{formatNumber(aa.ta)} sqm</b>&nbsp; Net: <b>{formatNumber(aa.na)} sqm</b>&nbsp; GFA: <b>{formatNumber(aa.gfa)} sqm</b>&nbsp; BUA: <b>{formatNumber(aa.bua)} sqm</b>
-                                                            </div>
+                                            <div style={{display:'flex', gap:'0.75rem', flexWrap:'wrap'}}>
+                                                {costAssetList.map(a => {
+                                                    const lc = withLiveLand(a.costs, totalLandArea, landValuePerSqm, cashPercent, a.aPct);
+                                                    const tot = lc.reduce((s,c) => s + calcCost(c, lc, a.ta, a.na, a.gfa, a.bua, a.aPct, totalLandArea, landValuePerSqm, cashPercent), 0);
+                                                    return (
+                                                        <div key={a.key} style={{padding:'0.65rem 1rem', background:a.bg, borderRadius:'8px', border:'1px solid #e2e8f0', minWidth:'140px'}}>
+                                                            <div style={{fontSize:'0.65rem', color:a.color}}>{a.label}</div>
+                                                            <div style={{fontSize:'0.95rem', fontWeight:'700', color:a.txt}}>{fmtCur(tot)}</div>
                                                         </div>
-                                                    </div>
-                                                    <button onClick={() => addCostItem(aa.setCosts)}
-                                                        style={{background:aa.color, color:'#fff', border:'none', borderRadius:'7px', padding:'0.45rem 1rem', fontSize:'0.8rem', fontWeight:'600', cursor:'pointer'}}>
-                                                        + Add Cost Item
-                                                    </button>
-                                                </div>
-
-                                                {/* ── Input Table ── */}
-                                                <div style={{overflowX:'auto', borderRadius:'7px', border:'1px solid #e5e7eb', marginBottom:'1.25rem'}}>
-                                                    <table style={{borderCollapse:'collapse', width:'100%', fontSize:'0.77rem', minWidth:'960px'}}>
-                                                        <thead>
-                                                            <tr style={{background:aa.color, color:'white'}}>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', width:'38px', textAlign:'center'}}>#</th>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'180px', textAlign:'left'}}>Description</th>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'148px', textAlign:'left'}}>Method</th>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'105px', textAlign:'right'}}>Value / Rate</th>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'190px', textAlign:'left'}}>Base Cost Type</th>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', width:'58px', textAlign:'center'}}>Start</th>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', width:'58px', textAlign:'center'}}>End</th>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'118px', textAlign:'left'}}>Phasing</th>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'118px', textAlign:'right'}}>Total Cost</th>
-                                                                <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', width:'34px'}}></th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {liveCosts.map((item, idx) => {
-                                                                const locked = item.lock;
-                                                                const tot = calcCost(item, liveCosts, aa.ta, aa.na, aa.gfa, aa.bua, aa.aPct, totalLandArea, landValuePerSqm, cashPercent);
-                                                                const pv = validPhase(item.phase, item.start, item.end);
-                                                                const rowBg = idx%2===0 ? '#fff' : '#f9fafb';
-                                                                const sI = locked ? sLock : sEdit;
-                                                                const sNum = Object.assign({}, sI, {textAlign:'right'});
-                                                                const sCtr = Object.assign({}, sI, {textAlign:'center', width:'52px', padding:'0.3rem 0.25rem'});
-                                                                return (
-                                                                    <tr key={item.id} style={{background:rowBg}}>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'center', color:'#9ca3af', fontSize:'0.7rem'}}>
-                                                                            {idx+1}
-                                                                            {locked && <span style={{display:'block', fontSize:'0.58rem', background:'#fee2e2', color:'#991b1b', borderRadius:'2px', padding:'0 2px'}}>LOCK</span>}
-                                                                        </td>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
-                                                                            <input type="text" value={item.name} disabled={locked} style={sI}
-                                                                                onChange={e => updCostItem(aa.setCosts, item.id, 'name', e.target.value)} />
-                                                                        </td>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
-                                                                            <select value={item.method} disabled={locked} style={sI}
-                                                                                onChange={e => updCostItem(aa.setCosts, item.id, 'method', e.target.value)}>
-                                                                                <option value="fixed">Fixed Amount</option>
-                                                                                <option value="rate_total">$/sqm — Total Area</option>
-                                                                                <option value="rate_net">$/sqm — Net Area</option>
-                                                                                <option value="rate_gfa">$/sqm — GFA</option>
-                                                                                <option value="rate_bua">$/sqm — BUA</option>
-                                                                                <option value="pct_base">% of Base Costs</option>
-                                                                            </select>
-                                                                        </td>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
-                                                                            <input type="number" value={item.value} disabled={locked} style={sNum}
-                                                                                onChange={e => updCostItem(aa.setCosts, item.id, 'value', parseFloat(e.target.value)||0)} />
-                                                                            {item.method==='pct_base' && <span style={{fontSize:'0.62rem', color:'#6b7280'}}> %</span>}
-                                                                        </td>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
-                                                                            {item.method==='pct_base' ? (
-                                                                                <div>
-                                                                                    <select value={item.baseType} style={sEdit}
-                                                                                        onChange={e => updCostItem(aa.setCosts, item.id, 'baseType', e.target.value)}>
-                                                                                        <option value="">— Select —</option>
-                                                                                        <option value="excl_land">Total Excl. Land</option>
-                                                                                        <option value="constr_infra_land">Constr + Infra + Landscape</option>
-                                                                                        <option value="land_cost">Land Cost Only</option>
-                                                                                        <option value="cash_land_val">Cash Land Value</option>
-                                                                                        <option value="custom_sel">Custom Selection</option>
-                                                                                        <option value="all_previous">All Costs Above</option>
-                                                                                    </select>
-                                                                                    {item.baseType==='custom_sel' && (
-                                                                                        <div style={{maxHeight:'76px', overflowY:'auto', marginTop:'3px', background:'#fff', border:'1px solid #e5e7eb', borderRadius:'4px', padding:'3px'}}>
-                                                                                            {liveCosts.filter(c => c.id!==item.id && c.id!==1).map(c => {
-                                                                                                const chk = (item.selCosts||[]).includes(c.id);
-                                                                                                return (
-                                                                                                    <label key={c.id} style={{display:'flex', alignItems:'center', gap:'4px', fontSize:'0.67rem', cursor:'pointer', padding:'1px 0'}}>
-                                                                                                        <input type="checkbox" checked={chk}
-                                                                                                            onChange={e => {
-                                                                                                                const old = item.selCosts||[];
-                                                                                                                const nw = e.target.checked ? [...old, c.id] : old.filter(x => x!==c.id);
-                                                                                                                updCostItem(aa.setCosts, item.id, 'selCosts', nw);
-                                                                                                            }} />
-                                                                                                        {c.name}
-                                                                                                    </label>
-                                                                                                );
-                                                                                            })}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            ) : <span style={{color:'#9ca3af', fontSize:'0.72rem'}}>N/A</span>}
-                                                                        </td>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'center'}}>
-                                                                            <input type="number" value={item.start} disabled={locked} min="0" max={cp} style={sCtr}
-                                                                                onChange={e => updCostItem(aa.setCosts, item.id, 'start', parseInt(e.target.value)||0)} />
-                                                                        </td>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'center'}}>
-                                                                            <input type="number" value={item.end} disabled={locked} min="0" max={cp} style={sCtr}
-                                                                                onChange={e => updCostItem(aa.setCosts, item.id, 'end', parseInt(e.target.value)||0)} />
-                                                                        </td>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
-                                                                            <input type="text" value={item.phase} disabled={locked} placeholder="even"
-                                                                                style={{backgroundColor: locked ? '#f3f4f6' : '#fef3c7', color: locked ? '#9ca3af' : '#1e40af',
-                                                                                    fontWeight: locked ? '400' : '600', borderRadius:'4px', padding:'0.3rem 0.5rem',
-                                                                                    border: !pv.ok ? '1px solid #ef4444' : (locked ? '1px solid #e5e7eb' : '1px solid #fbbf24'),
-                                                                                    width:'100%', fontSize:'0.75rem', cursor: locked ? 'not-allowed' : 'auto'}}
-                                                                                onChange={e => updCostItem(aa.setCosts, item.id, 'phase', e.target.value)} />
-                                                                            {!pv.ok && <div style={{color:'#ef4444', fontSize:'0.6rem', marginTop:'2px'}}>{pv.err}</div>}
-                                                                        </td>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'right', fontWeight:'600', color:'#1f2937'}}>
-                                                                            {tot > 0 ? fmtCur(tot) : '\u2014'}
-                                                                        </td>
-                                                                        <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'center'}}>
-                                                                            {!locked && (
-                                                                                <button onClick={() => delCostItem(aa.setCosts, item.id)}
-                                                                                    style={{background:'none', border:'none', cursor:'pointer', color:'#dc2626', fontSize:'0.95rem'}}>
-                                                                                    &#128465;
-                                                                                </button>
-                                                                            )}
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-
-                                                {/* ── CAPEX Summary ── */}
-                                                <div style={{fontWeight:'700', fontSize:'0.88rem', color:'#374151', marginBottom:'0.4rem', display:'flex', justifyContent:'space-between'}}>
-                                                    <span>CAPEX Schedule — {aa.label}</span>
-                                                    <span style={{fontWeight:'400', fontSize:'0.8rem', color:'#6b7280'}}>Grand Total: <strong style={{color:aa.color}}>{fmtCur(grandTotal)}</strong></span>
-                                                </div>
-                                                <div style={{overflowX:'auto', borderRadius:'7px', border:'1px solid #e5e7eb'}}>
-                                                    <table style={{borderCollapse:'collapse', fontSize:'0.74rem'}}>
-                                                        <thead>
-                                                            <tr>
-                                                                <th style={{position:'sticky', left:'0', top:'0', zIndex:'3', background:'#1f2937', color:'white', padding:'0.5rem 0.65rem', textAlign:'left', minWidth:'175px', border:'1px solid #374151', whiteSpace:'nowrap'}}>Description</th>
-                                                                <th style={{position:'sticky', top:'0', zIndex:'2', background:'#1f2937', color:'white', padding:'0.5rem 0.5rem', textAlign:'right', minWidth:'105px', border:'1px solid #374151'}}>Total</th>
-                                                                {periods.map(p => (
-                                                                    <th key={p} style={{position:'sticky', top:'0', zIndex:'2', background:'#1f2937', color:'white', padding:'0.5rem 0.35rem', textAlign:'right', minWidth:'62px', border:'1px solid #374151'}}>{pLbl(p)}</th>
-                                                                ))}
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {capexRows.map((row, idx) => {
-                                                                const bg2 = idx%2===0 ? '#fff' : '#f9fafb';
-                                                                return (
-                                                                    <tr key={row.id} style={{background:bg2}}>
-                                                                        <td style={{position:'sticky', left:'0', zIndex:'1', background:bg2, padding:'0.36rem 0.65rem', fontWeight:'500', border:'1px solid #e5e7eb', whiteSpace:'nowrap', maxWidth:'175px', overflow:'hidden', textOverflow:'ellipsis'}}>{row.name}</td>
-                                                                        <td style={{padding:'0.36rem 0.5rem', textAlign:'right', fontWeight:'600', border:'1px solid #e5e7eb', color:'#111827'}}>{row.tot>0 ? fmtCur(row.tot) : '\u2014'}</td>
-                                                                        {periods.map(p => {
-                                                                            const v = row.dist[p]||0;
-                                                                            return <td key={p} style={{padding:'0.36rem 0.35rem', textAlign:'right', border:'1px solid #e5e7eb', color:v>0?'#111827':'#d1d5db', fontSize:'0.71rem'}}>{v>0 ? fmtCur(v) : '\u2014'}</td>;
-                                                                        })}
-                                                                    </tr>
-                                                                );
-                                                            })}
-                                                            <tr style={{background:aa.bg}}>
-                                                                <td style={{position:'sticky', left:'0', zIndex:'1', background:aa.bg, padding:'0.42rem 0.65rem', fontWeight:'700', borderTop:'2px solid ' + aa.color, color:aa.txt}}>TOTAL</td>
-                                                                <td style={{padding:'0.42rem 0.5rem', textAlign:'right', fontWeight:'700', borderTop:'2px solid ' + aa.color, color:aa.txt}}>{fmtCur(grandTotal)}</td>
-                                                                {periods.map(p => {
-                                                                    const v = periodTotals[p]||0;
-                                                                    return <td key={p} style={{padding:'0.42rem 0.35rem', textAlign:'right', fontWeight:'700', borderTop:'2px solid ' + aa.color, color:v>0?aa.txt:'#93c5fd'}}>{v>0 ? fmtCur(v) : '\u2014'}</td>;
-                                                                })}
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
+                                                    );
+                                                })}
+                                                <div style={{padding:'0.65rem 1rem', background:'#f8fafc', borderRadius:'8px', border:'1px solid #e2e8f0', minWidth:'140px'}}>
+                                                    <div style={{fontSize:'0.65rem', color:'#64748b'}}>Construction Periods</div>
+                                                    <div style={{fontSize:'0.95rem', fontWeight:'700', color:'#1e293b'}}>{costCP} {modelType==='annual'?'Yrs':'Mo'}</div>
                                                 </div>
                                             </div>
                                         </div>
-                                    );
-                                })()}
+
+                                        {/* Asset Tabs */}
+                                        <div style={{display:'flex', gap:'0.5rem', marginBottom:'1rem'}}>
+                                            {costAssetList.map(a => (
+                                                <button key={a.key}
+                                                    onClick={() => setCostAsset(a.key)}
+                                                    style={{padding:'0.45rem 1.2rem', borderRadius:'8px', border:'none', cursor:'pointer', fontWeight:'600', fontSize:'0.85rem',
+                                                        background: costAsset===a.key ? a.color : '#f1f5f9',
+                                                        color: costAsset===a.key ? '#fff' : '#475569'}}>
+                                                    {a.label}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Active Asset Panel */}
+                                        <div className="module-card p-5">
+                                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.75rem'}}>
+                                                <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                                                    <div style={{width:'4px', height:'32px', background:costAA.color, borderRadius:'3px'}}></div>
+                                                    <div>
+                                                        <div style={{fontWeight:'700', fontSize:'1.05rem', color:'#1f2937'}}>{costAA.label}</div>
+                                                        <div style={{fontSize:'0.7rem', color:'#6b7280'}}>
+                                                            Total: <b>{formatNumber(costAA.ta)} sqm</b>&nbsp; Net: <b>{formatNumber(costAA.na)} sqm</b>&nbsp; GFA: <b>{formatNumber(costAA.gfa)} sqm</b>&nbsp; BUA: <b>{formatNumber(costAA.bua)} sqm</b>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => addCostItem(costAA.setCosts)}
+                                                    style={{background:costAA.color, color:'#fff', border:'none', borderRadius:'7px', padding:'0.45rem 1rem', fontSize:'0.8rem', fontWeight:'600', cursor:'pointer'}}>
+                                                    + Add Cost Item
+                                                </button>
+                                            </div>
+
+                                            {/* Input Table */}
+                                            <div style={{overflowX:'auto', borderRadius:'7px', border:'1px solid #e5e7eb', marginBottom:'1.25rem'}}>
+                                                <table style={{borderCollapse:'collapse', width:'100%', fontSize:'0.77rem', minWidth:'960px'}}>
+                                                    <thead>
+                                                        <tr style={{background:costAA.color, color:'white'}}>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', width:'38px', textAlign:'center'}}>#</th>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'180px', textAlign:'left'}}>Description</th>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'148px', textAlign:'left'}}>Method</th>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'105px', textAlign:'right'}}>Value / Rate</th>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'190px', textAlign:'left'}}>Base Cost Type</th>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', width:'58px', textAlign:'center'}}>Start</th>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', width:'58px', textAlign:'center'}}>End</th>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'118px', textAlign:'left'}}>Phasing</th>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', minWidth:'118px', textAlign:'right'}}>Total Cost</th>
+                                                            <th style={{padding:'0.5rem', border:'1px solid rgba(255,255,255,0.2)', width:'34px'}}></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {costLiveCosts.map((item, idx) => {
+                                                            const locked = item.lock;
+                                                            const tot = calcCost(item, costLiveCosts, costAA.ta, costAA.na, costAA.gfa, costAA.bua, costAA.aPct, totalLandArea, landValuePerSqm, cashPercent);
+                                                            const pv = validPhase(item.phase, item.start, item.end);
+                                                            const rowBg = idx%2===0 ? '#fff' : '#f9fafb';
+                                                            const sI = locked ? costSLock : costSEdit;
+                                                            return (
+                                                                <tr key={item.id} style={{background:rowBg}}>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'center', color:'#9ca3af', fontSize:'0.7rem'}}>
+                                                                        {idx+1}
+                                                                        {locked && <span style={{display:'block', fontSize:'0.58rem', background:'#fee2e2', color:'#991b1b', borderRadius:'2px', padding:'0 2px'}}>LOCK</span>}
+                                                                    </td>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
+                                                                        <input type="text" value={item.name} disabled={locked} style={sI}
+                                                                            onChange={e => updCostItem(costAA.setCosts, item.id, 'name', e.target.value)} />
+                                                                    </td>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
+                                                                        <select value={item.method} disabled={locked} style={sI}
+                                                                            onChange={e => updCostItem(costAA.setCosts, item.id, 'method', e.target.value)}>
+                                                                            <option value="fixed">Fixed Amount</option>
+                                                                            <option value="rate_total">$/sqm - Total Area</option>
+                                                                            <option value="rate_net">$/sqm - Net Area</option>
+                                                                            <option value="rate_gfa">$/sqm - GFA</option>
+                                                                            <option value="rate_bua">$/sqm - BUA</option>
+                                                                            <option value="pct_base">% of Base Costs</option>
+                                                                        </select>
+                                                                    </td>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
+                                                                        <input type="number" value={item.value} disabled={locked} style={Object.assign({}, sI, {textAlign:'right'})}
+                                                                            onChange={e => updCostItem(costAA.setCosts, item.id, 'value', parseFloat(e.target.value)||0)} />
+                                                                        {item.method==='pct_base' && <span style={{fontSize:'0.62rem', color:'#6b7280'}}> %</span>}
+                                                                    </td>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
+                                                                        {item.method==='pct_base' ? (
+                                                                            <div>
+                                                                                <select value={item.baseType} style={costSEdit}
+                                                                                    onChange={e => updCostItem(costAA.setCosts, item.id, 'baseType', e.target.value)}>
+                                                                                    <option value="">- Select -</option>
+                                                                                    <option value="excl_land">Total Excl. Land</option>
+                                                                                    <option value="constr_infra_land">Constr + Infra + Landscape</option>
+                                                                                    <option value="land_cost">Land Cost Only</option>
+                                                                                    <option value="cash_land_val">Cash Land Value</option>
+                                                                                    <option value="custom_sel">Custom Selection</option>
+                                                                                    <option value="all_previous">All Costs Above</option>
+                                                                                </select>
+                                                                                {item.baseType==='custom_sel' && (
+                                                                                    <div style={{maxHeight:'76px', overflowY:'auto', marginTop:'3px', background:'#fff', border:'1px solid #e5e7eb', borderRadius:'4px', padding:'3px'}}>
+                                                                                        {costLiveCosts.filter(c => c.id!==item.id && c.id!==1).map(c => {
+                                                                                            const chk = (item.selCosts||[]).includes(c.id);
+                                                                                            return (
+                                                                                                <label key={c.id} style={{display:'flex', alignItems:'center', gap:'4px', fontSize:'0.67rem', cursor:'pointer', padding:'1px 0'}}>
+                                                                                                    <input type="checkbox" checked={chk}
+                                                                                                        onChange={e => {
+                                                                                                            const old = item.selCosts||[];
+                                                                                                            const nw = e.target.checked ? old.concat([c.id]) : old.filter(x => x!==c.id);
+                                                                                                            updCostItem(costAA.setCosts, item.id, 'selCosts', nw);
+                                                                                                        }} />
+                                                                                                    {c.name}
+                                                                                                </label>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : <span style={{color:'#9ca3af', fontSize:'0.72rem'}}>N/A</span>}
+                                                                    </td>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'center'}}>
+                                                                        <input type="number" value={item.start} disabled={locked} min="0" max={costCP}
+                                                                            style={Object.assign({}, sI, {textAlign:'center', width:'52px', padding:'0.3rem 0.25rem'})}
+                                                                            onChange={e => updCostItem(costAA.setCosts, item.id, 'start', parseInt(e.target.value)||0)} />
+                                                                    </td>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'center'}}>
+                                                                        <input type="number" value={item.end} disabled={locked} min="0" max={costCP}
+                                                                            style={Object.assign({}, sI, {textAlign:'center', width:'52px', padding:'0.3rem 0.25rem'})}
+                                                                            onChange={e => updCostItem(costAA.setCosts, item.id, 'end', parseInt(e.target.value)||0)} />
+                                                                    </td>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb'}}>
+                                                                        <input type="text" value={item.phase} disabled={locked} placeholder="even"
+                                                                            style={{backgroundColor: locked ? '#f3f4f6' : '#fef3c7', color: locked ? '#9ca3af' : '#1e40af',
+                                                                                fontWeight: locked ? '400' : '600', borderRadius:'4px', padding:'0.3rem 0.5rem',
+                                                                                border: !pv.ok ? '1px solid #ef4444' : (locked ? '1px solid #e5e7eb' : '1px solid #fbbf24'),
+                                                                                width:'100%', fontSize:'0.75rem', cursor: locked ? 'not-allowed' : 'auto'}}
+                                                                            onChange={e => updCostItem(costAA.setCosts, item.id, 'phase', e.target.value)} />
+                                                                        {!pv.ok && <div style={{color:'#ef4444', fontSize:'0.6rem', marginTop:'2px'}}>{pv.err}</div>}
+                                                                    </td>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'right', fontWeight:'600', color:'#1f2937'}}>
+                                                                        {tot > 0 ? fmtCur(tot) : '-'}
+                                                                    </td>
+                                                                    <td style={{padding:'0.38rem 0.4rem', border:'1px solid #e5e7eb', textAlign:'center'}}>
+                                                                        {!locked && (
+                                                                            <button onClick={() => delCostItem(costAA.setCosts, item.id)}
+                                                                                style={{background:'none', border:'none', cursor:'pointer', color:'#dc2626', fontSize:'0.95rem'}}>
+                                                                                X
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {/* CAPEX Summary Table */}
+                                            <div style={{fontWeight:'700', fontSize:'0.88rem', color:'#374151', marginBottom:'0.4rem', display:'flex', justifyContent:'space-between'}}>
+                                                <span>CAPEX Schedule - {costAA.label}</span>
+                                                <span style={{fontWeight:'400', fontSize:'0.8rem', color:'#6b7280'}}>Grand Total: <strong style={{color:costAA.color}}>{fmtCur(costGrandTotal)}</strong></span>
+                                            </div>
+                                            <div style={{overflowX:'auto', borderRadius:'7px', border:'1px solid #e5e7eb'}}>
+                                                <table style={{borderCollapse:'collapse', fontSize:'0.74rem'}}>
+                                                    <thead>
+                                                        <tr>
+                                                            <th style={{position:'sticky', left:'0', top:'0', zIndex:'3', background:'#1f2937', color:'white', padding:'0.5rem 0.65rem', textAlign:'left', minWidth:'175px', border:'1px solid #374151', whiteSpace:'nowrap'}}>Description</th>
+                                                            <th style={{position:'sticky', top:'0', zIndex:'2', background:'#1f2937', color:'white', padding:'0.5rem 0.5rem', textAlign:'right', minWidth:'105px', border:'1px solid #374151'}}>Total</th>
+                                                            {costPeriods.map(p => (
+                                                                <th key={p} style={{position:'sticky', top:'0', zIndex:'2', background:'#1f2937', color:'white', padding:'0.5rem 0.35rem', textAlign:'right', minWidth:'62px', border:'1px solid #374151'}}>{costPLbl(p)}</th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {costCapexRows.map((row, idx) => {
+                                                            const bg2 = idx%2===0 ? '#fff' : '#f9fafb';
+                                                            return (
+                                                                <tr key={row.id} style={{background:bg2}}>
+                                                                    <td style={{position:'sticky', left:'0', zIndex:'1', background:bg2, padding:'0.36rem 0.65rem', fontWeight:'500', border:'1px solid #e5e7eb', whiteSpace:'nowrap', maxWidth:'175px', overflow:'hidden', textOverflow:'ellipsis'}}>{row.name}</td>
+                                                                    <td style={{padding:'0.36rem 0.5rem', textAlign:'right', fontWeight:'600', border:'1px solid #e5e7eb', color:'#111827'}}>{row.tot>0 ? fmtCur(row.tot) : '-'}</td>
+                                                                    {costPeriods.map(p => {
+                                                                        const v = row.dist[p]||0;
+                                                                        return <td key={p} style={{padding:'0.36rem 0.35rem', textAlign:'right', border:'1px solid #e5e7eb', color:v>0?'#111827':'#d1d5db', fontSize:'0.71rem'}}>{v>0 ? fmtCur(v) : '-'}</td>;
+                                                                    })}
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                        <tr style={{background:costAA.bg}}>
+                                                            <td style={{position:'sticky', left:'0', zIndex:'1', background:costAA.bg, padding:'0.42rem 0.65rem', fontWeight:'700', borderTop:'2px solid ' + costAA.color, color:costAA.txt}}>TOTAL</td>
+                                                            <td style={{padding:'0.42rem 0.5rem', textAlign:'right', fontWeight:'700', borderTop:'2px solid ' + costAA.color, color:costAA.txt}}>{fmtCur(costGrandTotal)}</td>
+                                                            {costPeriods.map(p => {
+                                                                const v = costPeriodTotals[p]||0;
+                                                                return <td key={p} style={{padding:'0.42rem 0.35rem', textAlign:'right', fontWeight:'700', borderTop:'2px solid ' + costAA.color, color:v>0?costAA.txt:'#93c5fd'}}>{v>0 ? fmtCur(v) : '-'}</td>;
+                                                            })}
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Financing Tab */}
                                 {activeTab === 'financing' && (
