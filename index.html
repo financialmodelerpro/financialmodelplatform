@@ -346,12 +346,16 @@
                         <table style={{ borderCollapse:'collapse', width:'100%', fontSize:'0.78rem', minWidth:'950px' }}>
                             <thead>
                                 <tr style={{ background:c.header, color:'white' }}>
-                                    {['#','Description','Method','Value / Rate','Base Cost Type','Start','End','Phasing','Total Cost',''].map((h,i) => (
-                                        <th key={i} style={{ padding:'0.6rem 0.5rem', textAlign: i===0||i===9?'center': i>=7?'right':'left', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap',
-                                            minWidth: i===1?'190px': i===2?'155px': i===4?'195px': i===7?'125px': i===8?'120px': '55px' }}>
-                                            {h}
-                                        </th>
-                                    ))}
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'center', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'55px' }}>#</th>
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'left', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'190px' }}>Description</th>
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'left', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'155px' }}>Method</th>
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'left', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'110px' }}>Value / Rate</th>
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'left', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'195px' }}>Base Cost Type</th>
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'left', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'55px' }}>Start</th>
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'left', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'55px' }}>End</th>
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'right', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'125px' }}>Phasing</th>
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'right', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'120px' }}>Total Cost</th>
+                                    <th style={{ padding:'0.6rem 0.5rem', textAlign:'center', border:'1px solid rgba(255,255,255,0.15)', whiteSpace:'nowrap', minWidth:'40px' }}></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -465,7 +469,7 @@
                             <div style={{ fontSize:'0.82rem', color:'#6b7280' }}>Grand Total: <b style={{ color:c.btn }}>{fmt(grandTotal)}</b></div>
                         </div>
                         <div style={{ overflowX:'auto', borderRadius:'8px', border:'1px solid #e5e7eb' }}>
-                            <table style={{ borderCollapse:'collapse', fontSize:'0.75rem', minWidth:`${190 + (cp+1)*68}px` }}>
+                            <table style={{ borderCollapse:'collapse', fontSize:'0.75rem', minWidth:(190 + (cp+1)*68) + 'px' }}>
                                 <thead>
                                     <tr>
                                         <th style={{ position:'sticky', left:0, top:0, zIndex:3, background:'#1f2937', color:'white', padding:'0.55rem 0.75rem', textAlign:'left', minWidth:'190px', border:'1px solid #374151', whiteSpace:'nowrap' }}>Description</th>
@@ -494,13 +498,15 @@
                                     })}
                                     {/* Total Row */}
                                     <tr style={{ background:c.totalRow }}>
-                                        <td style={{ position:'sticky', left:0, zIndex:1, background:c.totalRow, padding:'0.5rem 0.75rem', fontWeight:700, border:`1px solid ${c.totalRow}`, color:c.totalText }}>TOTAL</td>
-                                        <td style={{ padding:'0.5rem 0.6rem', textAlign:'right', fontWeight:700, border:`1px solid ${c.totalRow}`, color:c.totalText }}>{fmt(grandTotal)}</td>
-                                        {periods.map(p => (
-                                            <td key={p} style={{ padding:'0.5rem 0.4rem', textAlign:'right', fontWeight:700, border:`1px solid ${c.totalRow}`, color: periodTotals[p]>0 ? c.totalText : '#93c5fd' }}>
-                                                {periodTotals[p] > 0 ? fmt(periodTotals[p]) : '—'}
-                                            </td>
-                                        ))}
+                                        <td style={{ position:'sticky', left:0, zIndex:1, background:c.totalRow, padding:'0.5rem 0.75rem', fontWeight:700, borderTop:'2px solid #93c5fd', color:c.totalText }}>TOTAL</td>
+                                        <td style={{ padding:'0.5rem 0.6rem', textAlign:'right', fontWeight:700, borderTop:'2px solid #93c5fd', color:c.totalText }}>{fmt(grandTotal)}</td>
+                                        {periods.map(function(p) {
+                                            return (
+                                                <td key={p} style={{ padding:'0.5rem 0.4rem', textAlign:'right', fontWeight:700, borderTop:'2px solid #93c5fd', color: periodTotals[p]>0 ? c.totalText : '#93c5fd' }}>
+                                                    {periodTotals[p] > 0 ? fmt(periodTotals[p]) : '—'}
+                                                </td>
+                                            );
+                                        })}
                                     </tr>
                                 </tbody>
                             </table>
@@ -551,7 +557,11 @@
                 return (currency||'USD') + ' ' + Math.round(n).toLocaleString('en-US');
             };
 
-            const sharedProps = { constructionPeriods:cp, modelType, totalLandArea, landValuePerSqm, cashPercent, nextId, setNextId, currency };
+            const sharedCP = cp;
+            const sharedModelType = modelType;
+            const sharedTLA = totalLandArea;
+            const sharedLVPS = landValuePerSqm;
+            const sharedCashPct = cashPercent;
 
             return (
                 <div>
@@ -599,16 +609,22 @@
                     {showResidential && (
                         <CostSection label="Residential" colorKey="blue"
                             costs={resCosts} setCosts={setResCosts} areas={resAreas}
-                            residentialPercent={residentialPercent} {...sharedProps} />
+                            constructionPeriods={sharedCP} modelType={sharedModelType}
+                            totalLandArea={sharedTLA} landValuePerSqm={sharedLVPS} cashPercent={sharedCashPct}
+                            nextId={nextId} setNextId={setNextId} currency={currency} />
                     )}
                     {showHospitality && (
                         <CostSection label="Hospitality" colorKey="green"
                             costs={hospCosts} setCosts={setHospCosts} areas={hospAreas}
-                            residentialPercent={hospitalityPercent} {...sharedProps} />
+                            constructionPeriods={sharedCP} modelType={sharedModelType}
+                            totalLandArea={sharedTLA} landValuePerSqm={sharedLVPS} cashPercent={sharedCashPct}
+                            nextId={nextId} setNextId={setNextId} currency={currency} />
                     )}
                     <CostSection label="Retail" colorKey="purple"
                         costs={retCosts} setCosts={setRetCosts} areas={retAreas}
-                        residentialPercent={retailPercent} {...sharedProps} />
+                        constructionPeriods={sharedCP} modelType={sharedModelType}
+                        totalLandArea={sharedTLA} landValuePerSqm={sharedLVPS} cashPercent={sharedCashPct}
+                        nextId={nextId} setNextId={setNextId} currency={currency} />
                 </div>
             );
         }
