@@ -951,14 +951,7 @@
                                 >
                                     Land & Area
                                 </button>
-                                <button
-                                    onClick={() => setActiveTab('costs')}
-                                    className={`px-4 py-2 rounded font-medium transition ${
-                                        activeTab === 'costs' ? 'bg-purple-600 text-white' : 'hover:bg-gray-100'
-                                    }`}
-                                >
-                                    Development Costs
-                                </button>
+
                                 <button
                                     onClick={() => setActiveTab('financing')}
                                     className={`px-4 py-2 rounded font-medium transition ${
@@ -987,15 +980,14 @@
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Project Type</label>
-                                                <select
-                                                    value={projectType}
-                                                    onChange={(e) => setProjectType(e.target.value)}
-                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                >
-                                                    <option value="residential">Residential</option>
-                                                    <option value="hospitality">Hospitality</option>
-                                                    <option value="mixed-use">Mixed-Use</option>
-                                                </select>
+                                                <div className="flex gap-2">
+                                                    {['residential','hospitality','mixed-use'].map(pt => (
+                                                        <button key={pt} onClick={() => setProjectType(pt)}
+                                                            className={`flex-1 px-3 py-2 rounded-lg font-medium text-sm transition ${projectType === pt ? 'btn-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                                            {pt === 'mixed-use' ? 'Mixed-Use' : pt.charAt(0).toUpperCase() + pt.slice(1)}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
@@ -1024,14 +1016,16 @@
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Model Type</label>
-                                                <select
-                                                    value={modelType}
-                                                    onChange={(e) => handleModelTypeChange(e.target.value)}
-                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                                                >
-                                                    <option value="monthly">Monthly</option>
-                                                    <option value="annual">Annual</option>
-                                                </select>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleModelTypeChange('monthly')}
+                                                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${modelType === 'monthly' ? 'btn-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                                        Monthly
+                                                    </button>
+                                                    <button onClick={() => handleModelTypeChange('annual')}
+                                                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition ${modelType === 'annual' ? 'btn-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                                        Annual
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Project Start Date</label>
@@ -1746,104 +1740,6 @@
                                                     >
                                                         + Add Row
                                                     </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Development Costs Tab */}
-                                {activeTab === 'costs' && (
-                                    <div className="module-card p-6">
-                                        <h3 className="text-2xl font-bold mb-6 text-gray-800">Development Costs - Simple Summary</h3>
-                                        
-                                        <div className="space-y-6">
-                                            {/* Residential Summary */}
-                                            <div className="p-4 bg-blue-50 rounded-lg">
-                                                <h4 className="font-bold text-lg mb-3">Residential</h4>
-                                                <div className="space-y-2 text-sm">
-                                                    <div className="flex justify-between">
-                                                        <span>Land (Cash Portion):</span>
-                                                        <span className="font-bold">${formatNumber(residentialLandValue * (cashPercent / 100))}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Infrastructure ({formatNumber(residentialNetArea)} sqm × $500):</span>
-                                                        <span className="font-bold">${formatNumber(residentialNetArea * 500)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Construction ({formatNumber(residentialBUA)} sqm × $1,500):</span>
-                                                        <span className="font-bold">${formatNumber(residentialBUA * 1500)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between border-t pt-2 mt-2">
-                                                        <span className="font-bold">Total CAPEX:</span>
-                                                        <span className="font-bold text-blue-600 text-lg">
-                                                            ${formatNumber((residentialLandValue * (cashPercent / 100)) + (residentialNetArea * 500) + (residentialBUA * 1500))}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Hospitality Summary */}
-                                            <div className="p-4 bg-green-50 rounded-lg">
-                                                <h4 className="font-bold text-lg mb-3">Hospitality</h4>
-                                                <div className="space-y-2 text-sm">
-                                                    <div className="flex justify-between">
-                                                        <span>Land (Cash Portion):</span>
-                                                        <span className="font-bold">${formatNumber(hospitalityLandValue * (cashPercent / 100))}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Infrastructure ({formatNumber(hospitalityNetArea)} sqm × $500):</span>
-                                                        <span className="font-bold">${formatNumber(hospitalityNetArea * 500)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Construction ({formatNumber(hospitalityBUA)} sqm × $1,500):</span>
-                                                        <span className="font-bold">${formatNumber(hospitalityBUA * 1500)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between border-t pt-2 mt-2">
-                                                        <span className="font-bold">Total CAPEX:</span>
-                                                        <span className="font-bold text-green-600 text-lg">
-                                                            ${formatNumber((hospitalityLandValue * (cashPercent / 100)) + (hospitalityNetArea * 500) + (hospitalityBUA * 1500))}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Retail Summary */}
-                                            <div className="p-4 bg-purple-50 rounded-lg">
-                                                <h4 className="font-bold text-lg mb-3">Retail</h4>
-                                                <div className="space-y-2 text-sm">
-                                                    <div className="flex justify-between">
-                                                        <span>Land (Cash Portion):</span>
-                                                        <span className="font-bold">${formatNumber(retailLandValue * (cashPercent / 100))}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Infrastructure ({formatNumber(retailNetArea)} sqm × $500):</span>
-                                                        <span className="font-bold">${formatNumber(retailNetArea * 500)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Construction ({formatNumber(retailBUA)} sqm × $1,500):</span>
-                                                        <span className="font-bold">${formatNumber(retailBUA * 1500)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between border-t pt-2 mt-2">
-                                                        <span className="font-bold">Total CAPEX:</span>
-                                                        <span className="font-bold text-purple-600 text-lg">
-                                                            ${formatNumber((retailLandValue * (cashPercent / 100)) + (retailNetArea * 500) + (retailBUA * 1500))}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Grand Total */}
-                                            <div className="p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="font-bold text-xl">TOTAL PROJECT CAPEX:</span>
-                                                    <span className="font-bold text-3xl">
-                                                        ${formatNumber(
-                                                            (residentialLandValue * (cashPercent / 100)) + (residentialNetArea * 500) + (residentialBUA * 1500) +
-                                                            (hospitalityLandValue * (cashPercent / 100)) + (hospitalityNetArea * 500) + (hospitalityBUA * 1500) +
-                                                            (retailLandValue * (cashPercent / 100)) + (retailNetArea * 500) + (retailBUA * 1500)
-                                                        )}
-                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
