@@ -269,89 +269,47 @@
             const [interestRate, setInterestRate] = useState(7.5);
             
             // ============ DEVELOPMENT COSTS STATE ============
-            const [residentialCosts, setResidentialCosts] = useState([]);
-            const [hospitalityCosts, setHospitalityCosts] = useState([]);
-            const [retailCosts, setRetailCosts] = useState([]);
-            const [nextCostId, setNextCostId] = useState(6);
+            const makeDefaultCosts = (assetType, areas, landCashValue) => {
+                const cEnd = Math.max(constructionPeriods, 1);
+                return [
+                    { id:1,  name:'Land (Cash Portion)',            method:'fixed',         value: landCashValue, baseType:'',              selectedIds:[], startPeriod:0, endPeriod:0,    phasing:'100',             canDelete:false },
+                    { id:2,  name:'Construction Cost',              method:'rate_bua',       value:1200,           baseType:'',              selectedIds:[], startPeriod:7, endPeriod:cEnd, phasing:'even',            canDelete:true  },
+                    { id:3,  name:'Infrastructure Cost',            method:'rate_total_area',value:150,            baseType:'',              selectedIds:[], startPeriod:1, endPeriod:6,    phasing:'30,25,20,15,7,3', canDelete:true  },
+                    { id:4,  name:'Landscaping Cost',               method:'rate_total_area',value:50,             baseType:'',              selectedIds:[], startPeriod:1, endPeriod:6,    phasing:'30,25,20,15,7,3', canDelete:true  },
+                    { id:5,  name:'Pre-Operating Expenses',         method:'percent_base',   value:2,              baseType:'constr_infra_land', selectedIds:[], startPeriod:1, endPeriod:cEnd, phasing:'even',       canDelete:true  },
+                    { id:6,  name:'Professional Fee',               method:'percent_base',   value:5,              baseType:'excl_land',     selectedIds:[], startPeriod:1, endPeriod:cEnd, phasing:'even',            canDelete:true  },
+                    { id:7,  name:'Contingency Cost',               method:'percent_base',   value:3,              baseType:'excl_land',     selectedIds:[], startPeriod:1, endPeriod:cEnd, phasing:'even',            canDelete:true  },
+                    { id:8,  name:'Developer Fee / Performance Fee',method:'percent_base',   value:10,             baseType:'custom_select', selectedIds:[2,3,4], startPeriod:1, endPeriod:cEnd, phasing:'even',     canDelete:true  },
+                    { id:9,  name:'Electricity Station',            method:'fixed',          value:500000,         baseType:'',              selectedIds:[], startPeriod:3, endPeriod:8,    phasing:'even',            canDelete:true  },
+                    { id:10, name:'Bridges',                        method:'fixed',          value:750000,         baseType:'',              selectedIds:[], startPeriod:2, endPeriod:6,    phasing:'even',            canDelete:true  },
+                    { id:11, name:'Royal Commission Premium',       method:'percent_base',   value:2.5,            baseType:'land_cost',     selectedIds:[], startPeriod:0, endPeriod:0,    phasing:'100',             canDelete:true  },
+                    { id:12, name:'RETT',                           method:'percent_base',   value:5,              baseType:'cash_land_value',selectedIds:[], startPeriod:0, endPeriod:0,    phasing:'100',             canDelete:true  },
+                ];
+            };
 
-            // Initialize default residential costs
+            const resCashLand   = totalLandArea * landValuePerSqm * (cashPercent/100) * (residentialPercent/100);
+            const hospCashLand  = totalLandArea * landValuePerSqm * (cashPercent/100) * (hospitalityPercent/100);
+            const retCashLand   = totalLandArea * landValuePerSqm * (cashPercent/100) * (retailPercent/100);
+
+            const [residentialCosts, setResidentialCosts] = useState(() => makeDefaultCosts('residential', {}, resCashLand));
+            const [hospitalityCosts, setHospitalityCosts] = useState(() => makeDefaultCosts('hospitality', {}, hospCashLand));
+            const [retailCosts,      setRetailCosts]      = useState(() => makeDefaultCosts('retail',      {}, retCashLand));
+            const [nextCostId, setNextCostId] = useState(13);
+
+            // Sync land row when land inputs change
             useEffect(() => {
-                if (residentialCosts.length === 0) {
-                    const cashLandArea = (totalLandArea * cashPercent) / 100;
-                    const residentialLandValue = cashLandArea * landValuePerSqm * (residentialPercent / 100);
-
-                    setResidentialCosts([
-                        {
-                            id: 1,
-                            name: 'Land (Cash Portion)',
-                            method: 'fixed',
-                            value: residentialLandValue,
-                            baseType: '',
-                            startPeriod: 0,
-                            endPeriod: 0,
-                            phasing: '100',
-                            canDelete: false
-                        },
-                        {
-                            id: 2,
-                            name: 'Infrastructure Development',
-                            method: 'rate_total_area',
-                            value: 150,
-                            baseType: '',
-                            startPeriod: 1,
-                            endPeriod: 6,
-                            phasing: '30,25,20,15,7,3',
-                            canDelete: true
-                        },
-                        {
-                            id: 3,
-                            name: 'Construction Cost',
-                            method: 'rate_bua',
-                            value: 1200,
-                            baseType: '',
-                            startPeriod: 7,
-                            endPeriod: constructionPeriods,
-                            phasing: 'even',
-                            canDelete: true
-                        },
-                        {
-                            id: 4,
-                            name: 'Professional Fees',
-                            method: 'percent_base',
-                            value: 5,
-                            baseType: 'infra_construction',
-                            startPeriod: 1,
-                            endPeriod: constructionPeriods,
-                            phasing: 'even',
-                            canDelete: true
-                        },
-                        {
-                            id: 5,
-                            name: 'Contingency',
-                            method: 'percent_base',
-                            value: 3,
-                            baseType: 'all_previous',
-                            startPeriod: 1,
-                            endPeriod: constructionPeriods,
-                            phasing: 'even',
-                            canDelete: true
-                        }
-                    ]);
-                }
-            }, []);
-
-            // Update Land cost when dependencies change
-            useEffect(() => {
-                if (residentialCosts.length > 0) {
-                    const cashLandArea = (totalLandArea * cashPercent) / 100;
-                    const residentialLandValue = cashLandArea * landValuePerSqm * (residentialPercent / 100);
-
-                    setResidentialCosts(prev => prev.map(cost => 
-                        cost.id === 1 ? { ...cost, value: residentialLandValue } : cost
-                    ));
-                }
+                const v = totalLandArea * landValuePerSqm * (cashPercent/100) * (residentialPercent/100);
+                setResidentialCosts(prev => prev.map(c => c.id===1 ? {...c, value:v} : c));
             }, [totalLandArea, landValuePerSqm, cashPercent, residentialPercent]);
-            
+            useEffect(() => {
+                const v = totalLandArea * landValuePerSqm * (cashPercent/100) * (hospitalityPercent/100);
+                setHospitalityCosts(prev => prev.map(c => c.id===1 ? {...c, value:v} : c));
+            }, [totalLandArea, landValuePerSqm, cashPercent, hospitalityPercent]);
+            useEffect(() => {
+                const v = totalLandArea * landValuePerSqm * (cashPercent/100) * (retailPercent/100);
+                setRetailCosts(prev => prev.map(c => c.id===1 ? {...c, value:v} : c));
+            }, [totalLandArea, landValuePerSqm, cashPercent, retailPercent]);
+
             // Calculations
             const totalLandValue = totalLandArea * landValuePerSqm;
             const cashValue = (totalLandValue * cashPercent) / 100;
@@ -462,250 +420,129 @@
             };
             
             // ============ DEVELOPMENT COSTS HELPER FUNCTIONS ============
-            
-            // Calculate total cost for a cost item
-            const calculateItemTotal = (cost, assetType = 'residential') => {
-                const areas = {
-                    residential: {
-                        total: residentialTotalArea,
-                        net: residentialNetArea,
-                        gfa: residentialGFA,
-                        bua: residentialBUA
-                    },
-                    hospitality: {
-                        total: hospitalityTotalArea,
-                        net: hospitalityNetArea,
-                        gfa: hospitalityGFA,
-                        bua: hospitalityBUA
-                    },
-                    retail: {
-                        total: retailTotalArea,
-                        net: retailNetArea,
-                        gfa: retailGFA,
-                        bua: retailBUA
-                    }
-                };
 
-                const area = areas[assetType];
+            const getAssetAreas = (assetType) => ({
+                residential: { total:residentialTotalArea, net:residentialNetArea, gfa:residentialGFA, bua:residentialBUA },
+                hospitality:  { total:hospitalityTotalArea, net:hospitalityNetArea, gfa:hospitalityGFA,  bua:hospitalityBUA  },
+                retail:       { total:retailTotalArea,      net:retailNetArea,      gfa:retailGFA,       bua:retailBUA       },
+            }[assetType]);
 
+            const getCosts = (assetType) =>
+                assetType==='residential' ? residentialCosts :
+                assetType==='hospitality' ? hospitalityCosts : retailCosts;
+
+            const calculateItemTotal = (cost, assetType='residential', costsArr=null) => {
+                const area = getAssetAreas(assetType);
+                const costs = costsArr || getCosts(assetType);
                 switch (cost.method) {
-                    case 'fixed':
-                        return parseFloat(cost.value) || 0;
-                    case 'rate_total_area':
-                        return (parseFloat(cost.value) || 0) * area.total;
-                    case 'rate_net_area':
-                        return (parseFloat(cost.value) || 0) * area.net;
-                    case 'rate_gfa':
-                        return (parseFloat(cost.value) || 0) * area.gfa;
-                    case 'rate_bua':
-                        return (parseFloat(cost.value) || 0) * area.bua;
-                    case 'percent_base':
-                        return calculatePercentBase(cost, assetType);
-                    default:
-                        return 0;
+                    case 'fixed':           return parseFloat(cost.value) || 0;
+                    case 'rate_total_area': return (parseFloat(cost.value)||0) * area.total;
+                    case 'rate_net_area':   return (parseFloat(cost.value)||0) * area.net;
+                    case 'rate_gfa':        return (parseFloat(cost.value)||0) * area.gfa;
+                    case 'rate_bua':        return (parseFloat(cost.value)||0) * area.bua;
+                    case 'percent_base':    return calcPercentBase(cost, assetType, costs);
+                    default: return 0;
                 }
             };
 
-            // Calculate percentage of base costs
-            const calculatePercentBase = (cost, assetType = 'residential') => {
-                const costs = assetType === 'residential' ? residentialCosts : 
-                             assetType === 'hospitality' ? hospitalityCosts : retailCosts;
-                let baseTotal = 0;
-
+            const calcPercentBase = (cost, assetType, costs) => {
+                const pct = (parseFloat(cost.value)||0) / 100;
+                let base = 0;
                 switch (cost.baseType) {
-                    case 'infrastructure_only':
-                        const infraCost = costs.find(c => c.name.toLowerCase().includes('infrastructure'));
-                        if (infraCost && infraCost.id !== cost.id) {
-                            baseTotal = calculateItemTotal(infraCost, assetType);
-                        }
+                    case 'excl_land':
+                        base = costs.filter(c => c.id!==1 && c.id!==cost.id)
+                                    .reduce((s,c) => s + calculateItemTotal(c, assetType, costs), 0);
                         break;
-                    case 'construction_only':
-                        const constrCost = costs.find(c => c.name.toLowerCase().includes('construction'));
-                        if (constrCost && constrCost.id !== cost.id) {
-                            baseTotal = calculateItemTotal(constrCost, assetType);
-                        }
+                    case 'constr_infra_land':
+                        base = costs.filter(c => [2,3,4].includes(c.id) && c.id!==cost.id)
+                                    .reduce((s,c) => s + calculateItemTotal(c, assetType, costs), 0);
                         break;
-                    case 'infra_construction':
-                        const infra = costs.find(c => c.name.toLowerCase().includes('infrastructure'));
-                        const constr = costs.find(c => c.name.toLowerCase().includes('construction'));
-                        if (infra && infra.id !== cost.id) baseTotal += calculateItemTotal(infra, assetType);
-                        if (constr && constr.id !== cost.id) baseTotal += calculateItemTotal(constr, assetType);
+                    case 'land_cost':
+                        const lc = costs.find(c => c.id===1);
+                        base = lc ? (parseFloat(lc.value)||0) : 0;
+                        break;
+                    case 'cash_land_value':
+                        const pctAsset = assetType==='residential' ? residentialPercent :
+                                         assetType==='hospitality'  ? hospitalityPercent : retailPercent;
+                        base = totalLandArea * landValuePerSqm * (cashPercent/100) * (pctAsset/100);
+                        break;
+                    case 'custom_select':
+                        base = (cost.selectedIds||[]).filter(sid => sid!==cost.id)
+                                   .map(sid => costs.find(c=>c.id===sid)).filter(Boolean)
+                                   .reduce((s,c) => s + calculateItemTotal(c, assetType, costs), 0);
                         break;
                     case 'all_previous':
-                        const currentIndex = costs.findIndex(c => c.id === cost.id);
-                        if (currentIndex > 0) {
-                            baseTotal = costs.slice(0, currentIndex).reduce((sum, c) => 
-                                sum + calculateItemTotal(c, assetType), 0);
-                        }
+                        const idx = costs.findIndex(c=>c.id===cost.id);
+                        base = idx>0 ? costs.slice(0,idx).reduce((s,c)=>s+calculateItemTotal(c,assetType,costs),0) : 0;
                         break;
-                    default:
-                        baseTotal = 0;
+                    default: base = 0;
                 }
-
-                return baseTotal * ((parseFloat(cost.value) || 0) / 100);
+                return base * pct;
             };
 
-            // Validate phasing
             const validatePhasing = (phasing, startPeriod, endPeriod) => {
-                if (phasing.toLowerCase() === 'even') return { valid: true, error: '' };
-
-                const periods = endPeriod - startPeriod + 1;
-                const values = phasing.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
-
-                if (values.length !== periods) {
-                    return { 
-                        valid: false, 
-                        error: `Must have ${periods} values (one per period)` 
-                    };
-                }
-
-                const sum = values.reduce((a, b) => a + b, 0);
-                if (Math.abs(sum - 100) > 0.01) {
-                    return { 
-                        valid: false, 
-                        error: `Sum is ${sum.toFixed(1)}% (must be 100%)` 
-                    };
-                }
-
-                return { valid: true, error: '' };
+                if (!phasing || phasing.trim().toLowerCase()==='even') return { valid:true, error:'' };
+                const count = endPeriod - startPeriod + 1;
+                const vals = phasing.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                if (vals.length !== count) return { valid:false, error:`Need ${count} values, got ${vals.length}` };
+                const sum = vals.reduce((a,b)=>a+b,0);
+                if (Math.abs(sum-100)>0.01) return { valid:false, error:`Sum = ${sum.toFixed(1)}% (must be 100%)` };
+                return { valid:true, error:'' };
             };
 
-            // Distribute cost across periods based on phasing
-            const distributeCost = (cost, assetType = 'residential') => {
+            const distributeCost = (cost, assetType='residential') => {
                 const total = calculateItemTotal(cost, assetType);
-                const distribution = Array(constructionPeriods + 1).fill(0);
-
-                if (cost.phasing.toLowerCase() === 'even') {
-                    const periods = cost.endPeriod - cost.startPeriod + 1;
-                    const amountPerPeriod = total / periods;
-                    for (let i = cost.startPeriod; i <= cost.endPeriod && i <= constructionPeriods; i++) {
-                        distribution[i] = amountPerPeriod;
-                    }
+                const dist = Array(constructionPeriods + 1).fill(0);
+                if (cost.startPeriod===0 && cost.endPeriod===0) { dist[0]=total; return dist; }
+                if (!cost.phasing || cost.phasing.trim().toLowerCase()==='even') {
+                    const cnt = cost.endPeriod - cost.startPeriod + 1;
+                    const amt = cnt>0 ? total/cnt : 0;
+                    for (let i=cost.startPeriod; i<=cost.endPeriod && i<=constructionPeriods; i++) dist[i]=amt;
                 } else {
-                    const percentages = cost.phasing.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
-                    percentages.forEach((pct, idx) => {
-                        const period = cost.startPeriod + idx;
-                        if (period <= constructionPeriods) {
-                            distribution[period] = total * (pct / 100);
-                        }
-                    });
+                    const pcts = cost.phasing.split(',').map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
+                    pcts.forEach((p,i) => { const per=cost.startPeriod+i; if(per<=constructionPeriods) dist[per]=total*(p/100); });
                 }
-
-                return distribution;
+                return dist;
             };
 
-            // Add new cost item
-            const addResidentialCost = () => {
-                const newCost = {
-                    id: nextCostId,
-                    name: 'New Cost Item',
-                    method: 'fixed',
-                    value: 0,
-                    baseType: '',
-                    startPeriod: 1,
-                    endPeriod: constructionPeriods,
-                    phasing: 'even',
-                    canDelete: true
-                };
-                setResidentialCosts([...residentialCosts, newCost]);
-                setNextCostId(nextCostId + 1);
+            // Generic updaters for all 3 asset cost arrays
+            const updateCost = (assetType, id, field, value) => {
+                const setter = assetType==='residential' ? setResidentialCosts :
+                               assetType==='hospitality'  ? setHospitalityCosts : setRetailCosts;
+                setter(prev => prev.map(c => c.id===id ? {...c, [field]:value} : c));
+            };
+            const addCost = (assetType) => {
+                const setter = assetType==='residential' ? setResidentialCosts :
+                               assetType==='hospitality'  ? setHospitalityCosts : setRetailCosts;
+                setter(prev => [...prev, { id:nextCostId, name:'New Cost Item', method:'fixed', value:0, baseType:'', selectedIds:[], startPeriod:1, endPeriod:Math.max(constructionPeriods,1), phasing:'even', canDelete:true }]);
+                setNextCostId(n=>n+1);
+            };
+            const deleteCost = (assetType, id) => {
+                const setter = assetType==='residential' ? setResidentialCosts :
+                               assetType==='hospitality'  ? setHospitalityCosts : setRetailCosts;
+                setter(prev => prev.filter(c=>c.id!==id));
             };
 
-            // Delete cost item
-            const deleteResidentialCost = (id) => {
-                setResidentialCosts(residentialCosts.filter(c => c.id !== id));
-            };
-
-            // Update cost item
-            const updateResidentialCost = (id, field, value) => {
-                setResidentialCosts(residentialCosts.map(cost => 
-                    cost.id === id ? { ...cost, [field]: value } : cost
-                ));
-            };
-
-            // Calculate CAPEX summary
-            const calculateResidentialCapex = () => {
-                const summary = residentialCosts.map(cost => ({
+            const calcCapex = (costs, assetType) => {
+                const items = costs.map(cost => ({
                     name: cost.name,
-                    total: calculateItemTotal(cost, 'residential'),
-                    distribution: distributeCost(cost, 'residential')
+                    total: calculateItemTotal(cost, assetType),
+                    distribution: distributeCost(cost, assetType)
                 }));
-
-                // Calculate totals per period
-                const periodTotals = Array(constructionPeriods + 1).fill(0);
-                summary.forEach(item => {
-                    item.distribution.forEach((amount, period) => {
-                        periodTotals[period] += amount;
-                    });
-                });
-
-                return { items: summary, totals: periodTotals };
+                const totals = Array(constructionPeriods+1).fill(0);
+                items.forEach(item => item.distribution.forEach((amt,p) => { totals[p]+=amt; }));
+                return { items, totals };
             };
 
-            const residentialCapex = calculateResidentialCapex();
-            
-            // Helper function to get base area name for display
-            const getBaseAreaName = (baseAreaKey) => {
-                const nameMap = {
-                    'totalAllocated': 'Total Allocated Area',
-                    'netDevelopable': 'Net Developable Area',
-                    'gfa': 'GFA'
-                };
-                return nameMap[baseAreaKey] || baseAreaKey;
-            };
-            
-            // Helper function to get base area value
-            const getBaseAreaValue = (baseAreaKey, totalArea, netArea, gfaArea) => {
-                if (baseAreaKey === 'totalAllocated') return totalArea;
-                if (baseAreaKey === 'netDevelopable') return netArea;
-                if (baseAreaKey === 'gfa') return gfaArea;
-                return netArea;
-            };
-            
-            // Add custom row function
-            const addCustomRow = (sectionType) => {
-                const newRow = {
-                    id: Date.now(),
-                    name: 'Custom Metric',
-                    value: 0,
-                    baseArea: 'netDevelopable',
-                    multiplier: 1.0
-                };
-                
-                if (sectionType === 'residential') {
-                    setResidentialCustomRows([...residentialCustomRows, newRow]);
-                } else if (sectionType === 'hospitality') {
-                    setHospitalityCustomRows([...hospitalityCustomRows, newRow]);
-                } else if (sectionType === 'retail') {
-                    setRetailCustomRows([...retailCustomRows, newRow]);
-                }
-            };
-            
-            // Delete custom row function
-            const deleteCustomRow = (sectionType, rowId) => {
-                if (sectionType === 'residential') {
-                    setResidentialCustomRows(residentialCustomRows.filter(row => row.id !== rowId));
-                } else if (sectionType === 'hospitality') {
-                    setHospitalityCustomRows(hospitalityCustomRows.filter(row => row.id !== rowId));
-                } else if (sectionType === 'retail') {
-                    setRetailCustomRows(retailCustomRows.filter(row => row.id !== rowId));
-                }
-            };
-            
-            // Update custom row
-            const updateCustomRow = (sectionType, rowId, field, value) => {
-                const updateRows = (rows) => rows.map(row => 
-                    row.id === rowId ? { ...row, [field]: value } : row
-                );
-                
-                if (sectionType === 'residential') {
-                    setResidentialCustomRows(updateRows(residentialCustomRows));
-                } else if (sectionType === 'hospitality') {
-                    setHospitalityCustomRows(updateRows(hospitalityCustomRows));
-                } else if (sectionType === 'retail') {
-                    setRetailCustomRows(updateRows(retailCustomRows));
-                }
-            };
+            const residentialCapex  = showResidential ? calcCapex(residentialCosts, 'residential') : null;
+            const hospitalityCapex  = showHospitality ? calcCapex(hospitalityCosts, 'hospitality') : null;
+            const retailCapex       = calcCapex(retailCosts, 'retail');
+
+            // Add/remove for residential (legacy references kept working)
+            const addResidentialCost    = () => addCost('residential');
+            const deleteResidentialCost = (id) => deleteCost('residential', id);
+            const updateResidentialCost = (id, field, value) => updateCost('residential', id, field, value);
+            const calculateResidentialCapex = () => residentialCapex || { items:[], totals:[] };
 
             return (
                 <div className="min-h-screen">
@@ -735,14 +572,7 @@
                                 >
                                     Module 1
                                 </button>
-                                <button
-                                    onClick={() => setActiveModule('devcosts')}
-                                    className={`px-6 py-4 font-semibold transition ${
-                                        activeModule === 'devcosts' ? 'tab-active' : 'hover:bg-gray-100'
-                                    }`}
-                                >
-                                    Development Costs
-                                </button>
+
                             </div>
                         </div>
                     </div>
@@ -950,6 +780,14 @@
                                     }`}
                                 >
                                     Land & Area
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('costs')}
+                                    className={`px-4 py-2 rounded font-medium transition ${
+                                        activeTab === 'costs' ? 'bg-purple-600 text-white' : 'hover:bg-gray-100'
+                                    }`}
+                                >
+                                    Development Costs
                                 </button>
 
                                 <button
@@ -1746,6 +1584,221 @@
                                     </div>
                                 )}
 
+
+                                {/* Development Costs Tab */}
+                                {activeTab === 'costs' && (
+                                    <div>
+                                        <h3 className="text-2xl font-bold mb-6 text-gray-800">Development Costs</h3>
+
+                                        {[
+                                            ...(showResidential ? [{ key:'residential', label:'Residential', costs:residentialCosts, color:'blue', capex:residentialCapex }] : []),
+                                            ...(showHospitality ? [{ key:'hospitality',  label:'Hospitality',  costs:hospitalityCosts, color:'green', capex:hospitalityCapex }] : []),
+                                            { key:'retail', label:'Retail', costs:retailCosts, color:'purple', capex:retailCapex }
+                                        ].map(({ key, label, costs, color, capex }) => (
+                                            <div key={key} className="module-card p-6 mb-6">
+                                                <div className={`bg-${color}-50 border border-${color}-200 rounded-lg p-4 mb-5 flex justify-between items-center`}>
+                                                    <div>
+                                                        <h4 className={`text-xl font-bold text-${color}-800`}>{label} — Development Costs</h4>
+                                                        <div className="text-sm text-gray-500 mt-1">
+                                                            {label==='Residential' && `Total: ${formatNumber(residentialTotalArea)} sqm | Net: ${formatNumber(residentialNetArea)} sqm | GFA: ${formatNumber(residentialGFA)} sqm | BUA: ${formatNumber(residentialBUA)} sqm`}
+                                                            {label==='Hospitality' && `Total: ${formatNumber(hospitalityTotalArea)} sqm | Net: ${formatNumber(hospitalityNetArea)} sqm | GFA: ${formatNumber(hospitalityGFA)} sqm | BUA: ${formatNumber(hospitalityBUA)} sqm`}
+                                                            {label==='Retail' && `Total: ${formatNumber(retailTotalArea)} sqm | Net: ${formatNumber(retailNetArea)} sqm | GFA: ${formatNumber(retailGFA)} sqm | BUA: ${formatNumber(retailBUA)} sqm`}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <h5 className="text-sm font-bold text-gray-600 uppercase tracking-wide mb-3">Cost Assumptions</h5>
+                                                <div className="overflow-x-auto mb-2">
+                                                    <table className="w-full text-sm border-collapse" style={{minWidth:'900px'}}>
+                                                        <thead>
+                                                            <tr className="bg-gray-700 text-white">
+                                                                <th className="p-2 text-left" style={{minWidth:'180px'}}>Cost Item</th>
+                                                                <th className="p-2 text-left" style={{minWidth:'160px'}}>Calculation Method</th>
+                                                                <th className="p-2 text-center" style={{minWidth:'100px'}}>Value</th>
+                                                                <th className="p-2 text-left" style={{minWidth:'200px'}}>Base / Dependency</th>
+                                                                <th className="p-2 text-center" style={{minWidth:'70px'}}>Start</th>
+                                                                <th className="p-2 text-center" style={{minWidth:'70px'}}>End</th>
+                                                                <th className="p-2 text-left" style={{minWidth:'130px'}}>Phasing</th>
+                                                                <th className="p-2 text-right" style={{minWidth:'110px'}}>Total Cost ($)</th>
+                                                                <th className="p-2 text-center" style={{minWidth:'50px'}}></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                        {costs.map((cost, idx) => {
+                                                            const isLand = cost.id === 1;
+                                                            const isPercent = cost.method === 'percent_base';
+                                                            const validation = (cost.startPeriod===0 && cost.endPeriod===0) ? {valid:true,error:''} : validatePhasing(cost.phasing, cost.startPeriod, cost.endPeriod);
+                                                            const total = calculateItemTotal(cost, key);
+                                                            const otherCosts = costs.filter(c => c.id !== cost.id && c.id !== 1);
+                                                            const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                                                            return (
+                                                                <tr key={cost.id} className={rowBg}>
+                                                                    <td className="p-2 border-b border-gray-200">
+                                                                        <input type="text" value={cost.name}
+                                                                            onChange={e => updateCost(key, cost.id, 'name', e.target.value)}
+                                                                            disabled={isLand}
+                                                                            className={`w-full px-2 py-1 border rounded text-sm ${isLand ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-200' : 'input-assumption border-yellow-300'}`}
+                                                                        />
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200">
+                                                                        {isLand ? (
+                                                                            <span className="text-xs text-gray-400 px-2">Fixed (Auto)</span>
+                                                                        ) : (
+                                                                            <select value={cost.method}
+                                                                                onChange={e => updateCost(key, cost.id, 'method', e.target.value)}
+                                                                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                                                                <option value="fixed">Fixed Amount</option>
+                                                                                <option value="rate_total_area">Rate/sqm — Total Area</option>
+                                                                                <option value="rate_net_area">Rate/sqm — Net Area</option>
+                                                                                <option value="rate_gfa">Rate/sqm — GFA</option>
+                                                                                <option value="rate_bua">Rate/sqm — BUA</option>
+                                                                                <option value="percent_base">% of Base Costs</option>
+                                                                            </select>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200 text-center">
+                                                                        {isLand ? (
+                                                                            <span className="text-xs text-gray-400">${formatNumber(cost.value)}</span>
+                                                                        ) : (
+                                                                            <div className="flex items-center gap-1">
+                                                                                {isPercent && <span className="text-gray-500 text-xs font-bold">%</span>}
+                                                                                <input type="number" value={cost.value}
+                                                                                    onChange={e => updateCost(key, cost.id, 'value', parseFloat(e.target.value)||0)}
+                                                                                    className="w-full px-2 py-1 border border-yellow-300 rounded text-sm text-right input-assumption"
+                                                                                />
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200">
+                                                                        {isPercent && !isLand ? (
+                                                                            <div>
+                                                                                <select value={cost.baseType}
+                                                                                    onChange={e => updateCost(key, cost.id, 'baseType', e.target.value)}
+                                                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1">
+                                                                                    <option value="">— Select base —</option>
+                                                                                    <option value="excl_land">Total Constr. (excl. Land)</option>
+                                                                                    <option value="constr_infra_land">Construction + Infra + Landscaping</option>
+                                                                                    <option value="land_cost">Land Cost Only</option>
+                                                                                    <option value="cash_land_value">Cash Purchase Land Value</option>
+                                                                                    <option value="custom_select">Custom Selection ▾</option>
+                                                                                    <option value="all_previous">All Previous Costs</option>
+                                                                                </select>
+                                                                                {cost.baseType === 'custom_select' && (
+                                                                                    <div className="border border-gray-200 rounded p-1 bg-white" style={{maxHeight:'90px',overflowY:'auto',fontSize:'0.7rem'}}>
+                                                                                        {otherCosts.length === 0 && <div className="text-gray-400 px-1 py-0.5">No other items</div>}
+                                                                                        {otherCosts.map(oc => (
+                                                                                            <label key={oc.id} className="flex items-center gap-1 px-1 py-0.5 hover:bg-gray-50 cursor-pointer">
+                                                                                                <input type="checkbox"
+                                                                                                    checked={(cost.selectedIds||[]).includes(oc.id)}
+                                                                                                    onChange={e => {
+                                                                                                        const sel = cost.selectedIds||[];
+                                                                                                        updateCost(key, cost.id, 'selectedIds',
+                                                                                                            e.target.checked ? [...sel, oc.id] : sel.filter(x=>x!==oc.id));
+                                                                                                    }}
+                                                                                                />
+                                                                                                <span className="text-gray-700 truncate">{oc.name}</span>
+                                                                                            </label>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-gray-400 text-xs px-2">—</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200 text-center">
+                                                                        {isLand ? <span className="text-xs text-gray-400">0</span> : (
+                                                                            <input type="number" value={cost.startPeriod} min="0" max={constructionPeriods}
+                                                                                onChange={e => updateCost(key, cost.id, 'startPeriod', parseInt(e.target.value)||0)}
+                                                                                className="w-16 px-1 py-1 border border-yellow-300 rounded text-sm text-center input-assumption"/>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200 text-center">
+                                                                        {isLand ? <span className="text-xs text-gray-400">0</span> : (
+                                                                            <input type="number" value={cost.endPeriod} min="0" max={constructionPeriods}
+                                                                                onChange={e => updateCost(key, cost.id, 'endPeriod', parseInt(e.target.value)||0)}
+                                                                                className="w-16 px-1 py-1 border border-yellow-300 rounded text-sm text-center input-assumption"/>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200">
+                                                                        {isLand ? <span className="text-xs text-gray-400">100%</span> : (
+                                                                            <div>
+                                                                                <input type="text" value={cost.phasing}
+                                                                                    onChange={e => updateCost(key, cost.id, 'phasing', e.target.value)}
+                                                                                    className={`w-full px-2 py-1 border rounded text-xs input-assumption ${!validation.valid ? 'border-red-400' : 'border-yellow-300'}`}
+                                                                                    placeholder="even or 30,25,..."/>
+                                                                                {!validation.valid && <div className="validation-error">{validation.error}</div>}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200 text-right font-semibold text-blue-900">
+                                                                        ${formatNumber(total)}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200 text-center">
+                                                                        {cost.canDelete && (
+                                                                            <button onClick={() => deleteCost(key, cost.id)}
+                                                                                className="text-red-500 hover:text-red-700 font-bold text-lg">🗑️</button>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <div className="mt-3 mb-8">
+                                                    <button onClick={() => addCost(key)}
+                                                        className={`bg-${color}-500 hover:bg-${color}-600 text-white px-4 py-2 rounded text-sm font-semibold`}>
+                                                        + Add Cost Item
+                                                    </button>
+                                                </div>
+
+                                                <h5 className="text-sm font-bold text-gray-600 uppercase tracking-wide mb-3">{label} CAPEX Schedule</h5>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-sm" style={{minWidth:`${200+(constructionPeriods+1)*70}px`}}>
+                                                        <thead>
+                                                            <tr className="bg-gray-700 text-white">
+                                                                <th className="p-2 text-left" style={{minWidth:'180px'}}>Description</th>
+                                                                <th className="p-2 text-right" style={{minWidth:'110px'}}>Total</th>
+                                                                {Array.from({length: constructionPeriods+1}, (_,i) => (
+                                                                    <th key={i} className="p-2 text-right whitespace-nowrap" style={{minWidth:'70px'}}>
+                                                                        {modelType==='monthly' ? 'M' : 'Y'}{i}
+                                                                    </th>
+                                                                ))}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                        {capex && capex.items.map((item, i) => (
+                                                            <tr key={i} className={i%2===0 ? 'bg-white' : 'bg-gray-50'}>
+                                                                <td className="p-2 border-b font-medium">{item.name}</td>
+                                                                <td className="p-2 border-b text-right font-semibold">${formatNumber(item.total)}</td>
+                                                                {item.distribution.map((amt, p) => (
+                                                                    <td key={p} className="p-2 border-b text-right" style={{color: amt>0 ? '#1e40af' : '#9ca3af'}}>
+                                                                        {amt > 0 ? `$${formatNumber(amt)}` : '—'}
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        ))}
+                                                        {capex && (
+                                                            <tr className="total-row font-bold">
+                                                                <td className="p-3">TOTAL CAPEX</td>
+                                                                <td className="p-3 text-right">${formatNumber(capex.totals.reduce((a,b)=>a+b,0))}</td>
+                                                                {capex.totals.map((t,p) => (
+                                                                    <td key={p} className="p-3 text-right" style={{color: t>0 ? '#1e40af' : '#9ca3af'}}>
+                                                                        {t>0 ? `$${formatNumber(t)}` : '—'}
+                                                                    </td>
+                                                                ))}
+                                                            </tr>
+                                                        )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {/* Financing Tab */}
                                 {activeTab === 'financing' && (
                                     <div className="module-card p-6">
@@ -1966,220 +2019,6 @@
                     )}
 
                     {/* DEVELOPMENT COSTS MODULE */}
-                    {activeModule === 'devcosts' && (
-                        <div className="container mx-auto px-6 py-6">
-                            <div className="space-y-8">
-                                {/* RESIDENTIAL DEVELOPMENT COSTS */}
-                                {showResidential && (
-                                    <div className="module-card p-6">
-                                        <div className="flex justify-between items-center mb-6">
-                                            <h2 className="text-2xl font-bold text-blue-800">RESIDENTIAL DEVELOPMENT COSTS</h2>
-                                            <button
-                                                onClick={addResidentialCost}
-                                                className="btn-primary text-white px-4 py-2 rounded-lg font-semibold"
-                                            >
-                                                + Add Cost Item
-                                            </button>
-                                        </div>
-
-                                        {/* Cost Input Table */}
-                                        <div className="overflow-x-auto mb-8">
-                                            <table className="w-full cost-input-table">
-                                                <thead>
-                                                    <tr className="bg-gray-700 text-white">
-                                                        <th className="p-3 text-left">Cost Item Name</th>
-                                                        <th className="p-3 text-left">Calculation Method</th>
-                                                        <th className="p-3 text-left">Value</th>
-                                                        <th className="p-3 text-left">Base Cost Type</th>
-                                                        <th className="p-3 text-center">Start Period</th>
-                                                        <th className="p-3 text-center">End Period</th>
-                                                        <th className="p-3 text-left">Phasing</th>
-                                                        <th className="p-3 text-right">Total Cost</th>
-                                                        <th className="p-3 text-center">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {residentialCosts.map((cost, idx) => {
-                                                        const validation = validatePhasing(cost.phasing, cost.startPeriod, cost.endPeriod);
-                                                        return (
-                                                            <tr key={cost.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                                                <td className="p-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={cost.name}
-                                                                        onChange={(e) => updateResidentialCost(cost.id, 'name', e.target.value)}
-                                                                        disabled={!cost.canDelete}
-                                                                        className="w-full"
-                                                                    />
-                                                                </td>
-                                                                <td className="p-2">
-                                                                    <select
-                                                                        value={cost.method}
-                                                                        onChange={(e) => updateResidentialCost(cost.id, 'method', e.target.value)}
-                                                                        disabled={!cost.canDelete}
-                                                                    >
-                                                                        <option value="fixed">Fixed Amount</option>
-                                                                        <option value="rate_total_area">Rate per SQM - Total Area</option>
-                                                                        <option value="rate_net_area">Rate per SQM - Net Area</option>
-                                                                        <option value="rate_gfa">Rate per SQM - GFA</option>
-                                                                        <option value="rate_bua">Rate per SQM - BUA</option>
-                                                                        <option value="percent_base">% of Base Costs</option>
-                                                                    </select>
-                                                                </td>
-                                                                <td className="p-2">
-                                                                    <div className="flex items-center">
-                                                                        {cost.method === 'percent_base' && <span className="mr-1">%</span>}
-                                                                        {cost.method.startsWith('rate_') && <span className="mr-1">$</span>}
-                                                                        <input
-                                                                            type="number"
-                                                                            value={cost.value}
-                                                                            onChange={(e) => updateResidentialCost(cost.id, 'value', parseFloat(e.target.value) || 0)}
-                                                                            disabled={cost.id === 1}
-                                                                            className="w-full"
-                                                                        />
-                                                                        {cost.method.startsWith('rate_') && <span className="ml-1">/sqm</span>}
-                                                                    </div>
-                                                                </td>
-                                                                <td className="p-2">
-                                                                    {cost.method === 'percent_base' ? (
-                                                                        <select
-                                                                            value={cost.baseType}
-                                                                            onChange={(e) => updateResidentialCost(cost.id, 'baseType', e.target.value)}
-                                                                        >
-                                                                            <option value="infrastructure_only">Infrastructure Only</option>
-                                                                            <option value="construction_only">Construction Only</option>
-                                                                            <option value="infra_construction">Infra + Construction</option>
-                                                                            <option value="all_previous">All Previous Costs</option>
-                                                                        </select>
-                                                                    ) : (
-                                                                        <span className="text-gray-400">N/A</span>
-                                                                    )}
-                                                                </td>
-                                                                <td className="p-2 text-center">
-                                                                    <input
-                                                                        type="number"
-                                                                        value={cost.startPeriod}
-                                                                        onChange={(e) => updateResidentialCost(cost.id, 'startPeriod', parseInt(e.target.value) || 0)}
-                                                                        min="0"
-                                                                        max={constructionPeriods}
-                                                                        disabled={cost.id === 1}
-                                                                        className="w-20 text-center"
-                                                                    />
-                                                                </td>
-                                                                <td className="p-2 text-center">
-                                                                    <input
-                                                                        type="number"
-                                                                        value={cost.endPeriod}
-                                                                        onChange={(e) => updateResidentialCost(cost.id, 'endPeriod', parseInt(e.target.value) || 0)}
-                                                                        min="0"
-                                                                        max={constructionPeriods}
-                                                                        disabled={cost.id === 1}
-                                                                        className="w-20 text-center"
-                                                                    />
-                                                                </td>
-                                                                <td className="p-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={cost.phasing}
-                                                                        onChange={(e) => updateResidentialCost(cost.id, 'phasing', e.target.value)}
-                                                                        disabled={cost.id === 1}
-                                                                        className="w-full"
-                                                                        placeholder="30,25,20,15,7,3 or 'even'"
-                                                                    />
-                                                                    {!validation.valid && (
-                                                                        <div className="validation-error">{validation.error}</div>
-                                                                    )}
-                                                                </td>
-                                                                <td className="p-2 text-right font-semibold">
-                                                                    ${formatNumber(calculateItemTotal(cost, 'residential'))}
-                                                                </td>
-                                                                <td className="p-2 text-center">
-                                                                    {cost.canDelete && (
-                                                                        <button
-                                                                            onClick={() => deleteResidentialCost(cost.id)}
-                                                                            className="text-red-600 hover:text-red-800 text-xl"
-                                                                        >
-                                                                            🗑️
-                                                                        </button>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        {/* CAPEX Summary Table */}
-                                        <div>
-                                            <h3 className="text-xl font-bold text-blue-800 mb-4">RESIDENTIAL CAPEX SUMMARY</h3>
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-sm">
-                                                    <thead>
-                                                        <tr className="bg-gray-700 text-white">
-                                                            <th className="p-3 text-left">Description</th>
-                                                            <th className="p-3 text-right">Total</th>
-                                                            {Array.from({ length: constructionPeriods + 1 }, (_, i) => (
-                                                                <th key={i} className="p-3 text-right whitespace-nowrap">
-                                                                    {modelType === 'monthly' ? 'Month' : 'Year'} {i}
-                                                                </th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {residentialCapex.items.map((item, idx) => (
-                                                            <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                                                <td className="p-2 font-medium">{item.name}</td>
-                                                                <td className="p-2 text-right font-semibold">
-                                                                    ${formatNumber(item.total)}
-                                                                </td>
-                                                                {item.distribution.map((amount, periodIdx) => (
-                                                                    <td key={periodIdx} className="p-2 text-right">
-                                                                        {amount > 0 ? `$${formatNumber(amount)}` : '-'}
-                                                                    </td>
-                                                                ))}
-                                                            </tr>
-                                                        ))}
-                                                        <tr className="total-row">
-                                                            <td className="p-3 font-bold">TOTAL CAPEX</td>
-                                                            <td className="p-3 text-right font-bold">
-                                                                ${formatNumber(residentialCapex.totals.reduce((a, b) => a + b, 0))}
-                                                            </td>
-                                                            {residentialCapex.totals.map((total, idx) => (
-                                                                <td key={idx} className="p-3 text-right font-bold">
-                                                                    {total > 0 ? `$${formatNumber(total)}` : '-'}
-                                                                </td>
-                                                            ))}
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Placeholder for Hospitality - Will be added after testing */}
-                                {showHospitality && (
-                                    <div className="module-card p-6">
-                                        <h2 className="text-2xl font-bold text-green-800 mb-4">HOSPITALITY DEVELOPMENT COSTS</h2>
-                                        <div className="bg-green-50 p-8 rounded-lg text-center">
-                                            <p className="text-green-700 font-semibold">Coming after Residential testing is complete</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Placeholder for Retail - Will be added after Hospitality */}
-                                {showRetail && (
-                                    <div className="module-card p-6">
-                                        <h2 className="text-2xl font-bold text-purple-800 mb-4">RETAIL DEVELOPMENT COSTS</h2>
-                                        <div className="bg-purple-50 p-8 rounded-lg text-center">
-                                            <p className="text-purple-700 font-semibold">Coming after Hospitality testing is complete</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         }
