@@ -175,13 +175,21 @@
             // Handle model type change with auto-conversion
             const handleModelTypeChange = (newType) => {
                 if (modelType === 'monthly' && newType === 'annual') {
-                    // Convert from monthly to annual
                     setConstructionPeriods(Math.round(constructionPeriods / 12));
                     setOperationsPeriods(Math.round(operationsPeriods / 12));
+                    // Convert cost periods monthly → annual
+                    const conv = (p) => Math.round(p / 12);
+                    setResidentialCosts(prev => prev.map(c => ({...c, startPeriod: conv(c.startPeriod), endPeriod: conv(c.endPeriod)})));
+                    setHospitalityCosts(prev => prev.map(c => ({...c, startPeriod: conv(c.startPeriod), endPeriod: conv(c.endPeriod)})));
+                    setRetailCosts(prev => prev.map(c => ({...c, startPeriod: conv(c.startPeriod), endPeriod: conv(c.endPeriod)})));
                 } else if (modelType === 'annual' && newType === 'monthly') {
-                    // Convert from annual to monthly
                     setConstructionPeriods(constructionPeriods * 12);
                     setOperationsPeriods(operationsPeriods * 12);
+                    // Convert cost periods annual → monthly
+                    const conv = (p) => p * 12;
+                    setResidentialCosts(prev => prev.map(c => ({...c, startPeriod: conv(c.startPeriod), endPeriod: conv(c.endPeriod)})));
+                    setHospitalityCosts(prev => prev.map(c => ({...c, startPeriod: conv(c.startPeriod), endPeriod: conv(c.endPeriod)})));
+                    setRetailCosts(prev => prev.map(c => ({...c, startPeriod: conv(c.startPeriod), endPeriod: conv(c.endPeriod)})));
                 }
                 setModelType(newType);
             };
@@ -2049,14 +2057,9 @@
                                 {/* RESIDENTIAL DEVELOPMENT COSTS */}
                                 {showResidential && (
                                     <div className="module-card p-6">
-                                        <div className="flex justify-between items-center mb-6">
+                                        <div className="flex justify-between items-center mb-4">
                                             <h2 className="text-2xl font-bold text-blue-800">RESIDENTIAL DEVELOPMENT COSTS</h2>
-                                            <button
-                                                onClick={addResidentialCost}
-                                                className="btn-primary text-white px-4 py-2 rounded-lg font-semibold"
-                                            >
-                                                + Add Cost Item
-                                            </button>
+                                            <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">All figures in {currency}</span>
                                         </div>
 
                                         {/* Cost Input Table */}
@@ -2168,7 +2171,7 @@
                                                                     )}
                                                                 </td>
                                                                 <td className="p-2 text-right font-semibold">
-                                                                    ${formatNumber(calculateItemTotal(cost, 'residential'))}
+                                                                    {formatNumber(calculateItemTotal(cost, 'residential'))}
                                                                 </td>
                                                                 <td className="p-2 text-center">
                                                                     {cost.canDelete && (
@@ -2208,11 +2211,11 @@
                                                             <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                                                 <td className="p-2 font-medium">{item.name}</td>
                                                                 <td className="p-2 text-right font-semibold">
-                                                                    ${formatNumber(item.total)}
+                                                                    {formatNumber(item.total)}
                                                                 </td>
                                                                 {item.distribution.map((amount, periodIdx) => (
                                                                     <td key={periodIdx} className="p-2 text-right">
-                                                                        {amount > 0 ? `$${formatNumber(amount)}` : '-'}
+                                                                        {amount > 0 ? formatNumber(amount) : '-'}
                                                                     </td>
                                                                 ))}
                                                             </tr>
@@ -2220,11 +2223,11 @@
                                                         <tr className="total-row">
                                                             <td className="p-3 font-bold">TOTAL CAPEX</td>
                                                             <td className="p-3 text-right font-bold">
-                                                                ${formatNumber(residentialCapex.totals.reduce((a, b) => a + b, 0))}
+                                                                {formatNumber(residentialCapex.totals.reduce((a, b) => a + b, 0))}
                                                             </td>
                                                             {residentialCapex.totals.map((total, idx) => (
                                                                 <td key={idx} className="p-3 text-right font-bold">
-                                                                    {total > 0 ? `$${formatNumber(total)}` : '-'}
+                                                                    {total > 0 ? formatNumber(total) : '-'}
                                                                 </td>
                                                             ))}
                                                         </tr>
