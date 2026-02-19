@@ -177,16 +177,31 @@
                 const toAnnual = (newType === 'annual');
                 const convP = (p) => toAnnual ? Math.round(p / 12) : p * 12;
                 const convPhasing = (phasing) => {
-                    if (!phasing || phasing.trim().toLowerCase() === 'even') return phasing;
+                    if (!phasing) return phasing;
+                    // Handle object phasing
+                    if (typeof phasing === 'object') {
+                        if (phasing.type === 'even') return phasing;
+                        const parts = phasing.values || [];
+                        if (toAnnual) {
+                            const result = [];
+                            for (let i=0; i<parts.length; i+=12) result.push(parseFloat(parts.slice(i,i+12).reduce((a,b)=>a+b,0).toFixed(1)));
+                            return { type:'manual', values: result };
+                        } else {
+                            const result = [];
+                            parts.forEach(n => { for(let m=0;m<12;m++) result.push(parseFloat((n/12).toFixed(2))); });
+                            return { type:'manual', values: result };
+                        }
+                    }
+                    if (phasing.trim().toLowerCase() === 'even') return phasing;
                     const parts = phasing.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
                     if (toAnnual) {
                         const result = [];
-                        for (let i = 0; i < parts.length; i += 12) result.push(parseFloat(parts.slice(i,i+12).reduce((a,b)=>a+b,0).toFixed(1)));
-                        return result.join(',');
+                        for (let i=0; i<parts.length; i+=12) result.push(parseFloat(parts.slice(i,i+12).reduce((a,b)=>a+b,0).toFixed(1)));
+                        return { type:'manual', values: result };
                     } else {
                         const result = [];
                         parts.forEach(n => { for(let m=0;m<12;m++) result.push(parseFloat((n/12).toFixed(2))); });
-                        return result.join(',');
+                        return { type:'manual', values: result };
                     }
                 };
                 const convertCosts = (prev) => prev.map(c => ({
@@ -551,7 +566,12 @@
             const retailLandValue = retailTotalArea * landValuePerSqm;
             
             const formatNumber = (num) => {
-                if (!num || num === 0) return '0';
+                if (num === null || num === undefined || num === 0 || isNaN(num)) return '-';
+                return Math.round(num).toLocaleString('en-US');
+            };
+            // For input display (never show dash, show actual value)
+            const formatInput = (num) => {
+                if (num === null || num === undefined || isNaN(num)) return '0';
                 return Math.round(num).toLocaleString('en-US');
             };
             
@@ -563,9 +583,9 @@
             // ============ DEVELOPMENT COSTS HELPER FUNCTIONS ============
 
             const getAreas = (assetType) => ({
-                residential: { totalAllocated:residentialTotalArea, netDevelopable:residentialNetArea, roadsArea:residentialRoadsArea, gfa:residentialGFA, bua:residentialBUA, landValue:residentialLandValue, cashLandValue:residentialTotalArea*landValuePerSqm*(cashPercent/100) },
-                hospitality:  { totalAllocated:hospitalityTotalArea,  netDevelopable:hospitalityNetArea,  roadsArea:hospitalityRoadsArea,  gfa:hospitalityGFA,  bua:hospitalityBUA,  landValue:hospitalityLandValue,  cashLandValue:hospitalityTotalArea*landValuePerSqm*(cashPercent/100) },
-                retail:       { totalAllocated:retailTotalArea,       netDevelopable:retailNetArea,       roadsArea:retailRoadsArea,       gfa:retailGFA,       bua:retailBUA,       landValue:retailLandValue,       cashLandValue:retailTotalArea*landValuePerSqm*(cashPercent/100) },
+                residential: { totalAllocated:residentialTotalArea, netDevelopable:residentialNetArea, roadsArea:residentialRoadsArea, gfa:residentialGFA, bua:residentialBUA, landValue:residentialLandValue, cashLandValue:residentialTotalArea*landValuePerSqm*(cashPercent/100), inKindLandValue:residentialTotalArea*landValuePerSqm*(inKindPercent/100) },
+                hospitality:  { totalAllocated:hospitalityTotalArea,  netDevelopable:hospitalityNetArea,  roadsArea:hospitalityRoadsArea,  gfa:hospitalityGFA,  bua:hospitalityBUA,  landValue:hospitalityLandValue,  cashLandValue:hospitalityTotalArea*landValuePerSqm*(cashPercent/100),  inKindLandValue:hospitalityTotalArea*landValuePerSqm*(inKindPercent/100) },
+                retail:       { totalAllocated:retailTotalArea,       netDevelopable:retailNetArea,       roadsArea:retailRoadsArea,       gfa:retailGFA,       bua:retailBUA,       landValue:retailLandValue,       cashLandValue:retailTotalArea*landValuePerSqm*(cashPercent/100),       inKindLandValue:retailTotalArea*landValuePerSqm*(inKindPercent/100) },
             }[assetType]);
 
             const getMethodBase = (method, assetType) => {
@@ -601,6 +621,7 @@
                     case 'percent_base':          return getSelectedBase(cost, costs, assetType) * (val/100);
                     case 'percent_total_land':    return a.landValue * (val/100);
                     case 'percent_cash_land':     return a.cashLandValue * (val/100);
+                    case 'percent_inkind_land':   return a.inKindLandValue * (val/100);
                     default: return 0;
                 }
             };
@@ -611,32 +632,49 @@
                 return getSelectedBase(cost, costs, assetType) * ((parseFloat(cost.value)||0)/100);
             };
 
-            // Validate phasing
-            const validatePhasing = (phasing, startPeriod, endPeriod) => {
-                if (!phasing || phasing.trim().toLowerCase() === 'even') return { valid:true, error:'' };
-                if (startPeriod === 0 && endPeriod === 0) return { valid:true, error:'' };
-                const periods = endPeriod - startPeriod + 1;
-                const values = phasing.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
-                if (values.length !== periods) return { valid:false, error:`Need ${periods} values, got ${values.length}` };
-                const sum = values.reduce((a,b)=>a+b, 0);
-                if (Math.abs(sum-100) > 0.01) return { valid:false, error:`Sum is ${sum.toFixed(1)}% (must be 100%)` };
-                return { valid:true, error:'' };
-            };
+
 
             // Distribute cost across periods based on phasing
             const distributeCost = (cost, assetType='residential') => {
                 const total = calculateItemTotal(cost, assetType);
                 const distribution = Array(constructionPeriods + 1).fill(0);
                 if (cost.startPeriod === 0 && cost.endPeriod === 0) { distribution[0] = total; return distribution; }
-                if (!cost.phasing || cost.phasing.trim().toLowerCase() === 'even') {
+                const phasingMode = getPhasingMode(cost);
+                if (phasingMode === 'even') {
                     const cnt = cost.endPeriod - cost.startPeriod + 1;
                     const amt = cnt > 0 ? total/cnt : 0;
                     for (let i=cost.startPeriod; i<=cost.endPeriod && i<=constructionPeriods; i++) distribution[i]=amt;
                 } else {
-                    const pcts = cost.phasing.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                    const pcts = getPhasingValues(cost);
                     pcts.forEach((pct,idx) => { const p=cost.startPeriod+idx; if(p<=constructionPeriods) distribution[p]=total*(pct/100); });
                 }
                 return distribution;
+            };
+
+            // Get phasing mode: 'even' or 'manual'
+            const getPhasingMode = (cost) => {
+                if (!cost.phasing) return 'even';
+                if (typeof cost.phasing === 'object') return cost.phasing.type || 'even';
+                if (cost.phasing.trim().toLowerCase() === 'even') return 'even';
+                return 'manual';
+            };
+
+            // Get phasing values array (percentages)
+            const getPhasingValues = (cost) => {
+                if (typeof cost.phasing === 'object' && cost.phasing.values) return cost.phasing.values;
+                if (typeof cost.phasing === 'string' && cost.phasing.trim().toLowerCase() !== 'even') {
+                    return cost.phasing.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                }
+                return [];
+            };
+
+            // Validate phasing
+            const validatePhasingValues = (values, startPeriod, endPeriod) => {
+                const periods = endPeriod - startPeriod + 1;
+                if (values.length !== periods) return { valid:false, error:`Need ${periods} values` };
+                const sum = values.reduce((a,b)=>a+b, 0);
+                if (Math.abs(sum-100) > 0.01) return { valid:false, sum, error:`Sum: ${sum.toFixed(1)}%` };
+                return { valid:true, sum, error:'' };
             };
             // Add new cost item
             const addResidentialCost = () => {
@@ -1902,13 +1940,14 @@
                                                         <th className="p-2 text-right" style={{minWidth:'120px'}}>Area / Base Value</th>
                                                         <th className="p-2 text-right" style={{minWidth:'90px'}}>Input Value</th>
                                                         <th className="p-2 text-right" style={{minWidth:'110px'}}>Total Cost</th>
-                                                        <th className="p-2 text-center" style={{minWidth:'65px'}}>Start</th>
-                                                        <th className="p-2 text-center" style={{minWidth:'65px'}}>End</th>
-                                                        <th className="p-2 text-left" style={{minWidth:'150px'}}>Phasing</th>
+                                                        <th className="p-2 text-center" style={{minWidth:'75px'}}>Start Period</th>
+                                                        <th className="p-2 text-center" style={{minWidth:'75px'}}>End Period</th>
+                                                        <th className="p-2 text-left" style={{minWidth:'200px'}}>Period Wise Allocation %</th>
                                                         <th className="p-2 text-center" style={{minWidth:'40px'}}></th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
+                                                                                                {/* Row body */}
                                                 {residentialCosts.map((cost, idx) => {
                                                     const isLand  = cost.id === 1;
                                                     const isRate  = cost.method.startsWith('rate_');
@@ -1916,9 +1955,9 @@
                                                     const areaVal = isRate ? getMethodBase(cost.method, 'residential') : null;
                                                     const baseVal = isPct  ? getSelectedBase(cost, residentialCosts, 'residential') : null;
                                                     const total   = calculateItemTotal(cost, 'residential');
-                                                    const validation = validatePhasing(cost.phasing, cost.startPeriod, cost.endPeriod);
                                                     const otherCosts = residentialCosts.filter(c => c.id !== cost.id);
                                                     const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                                                    const a = getAreas('residential');
                                                     return (
                                                         <tr key={cost.id} className={rowBg}>
 
@@ -1931,7 +1970,7 @@
                                                                 />
                                                             </td>
 
-                                                            {/* Calculation Method dropdown + optional multi-select */}
+                                                            {/* Calculation Method */}
                                                             <td className="p-2 border-b border-gray-200">
                                                                 {isLand ? (
                                                                     <span className="text-xs text-gray-400 italic">Fixed (Auto-calculated)</span>
@@ -1950,13 +1989,13 @@
                                                                                 <option value="rate_gfa">GFA</option>
                                                                                 <option value="rate_bua">BUA</option>
                                                                             </optgroup>
-                                                                            <optgroup label="── Percentage ──">
+                                                                            <optgroup label="── Percentage of ──">
                                                                                 <option value="percent_base">% of Selected Costs ▾</option>
-                                                                                <option value="percent_total_land">% of Total Land Value (incl. In-Kind)</option>
-                                                                                <option value="percent_cash_land">% of Cash Purchase Land Value</option>
+                                                                                <option value="percent_total_land">% of Total Land Cost</option>
+                                                                                <option value="percent_cash_land">% of Cash Land Value</option>
+                                                                                <option value="percent_inkind_land">% of In-Kind Land Value</option>
                                                                             </optgroup>
                                                                         </select>
-                                                                        {/* Multi-select checklist shown only for % of Selected Costs */}
                                                                         {isPct && (
                                                                             <div className="border border-blue-200 rounded bg-white shadow-sm" style={{maxHeight:'110px', overflowY:'auto', fontSize:'0.68rem'}}>
                                                                                 {otherCosts.length === 0
@@ -1981,42 +2020,24 @@
                                                                 )}
                                                             </td>
 
-                                                            {/* Area / Base Value — what gets multiplied */}
+                                                            {/* Area / Base Value */}
                                                             <td className="p-2 border-b border-gray-200 text-right text-xs">
                                                                 {isLand && <span className="text-gray-400 italic">—</span>}
-                                                                {isRate && (
-                                                                    <span className="font-semibold text-blue-700">
-                                                                        {formatNumber(areaVal)} sqm
-                                                                    </span>
-                                                                )}
-                                                                {isPct && (
-                                                                    <span className="font-semibold text-purple-700">
-                                                                        {formatNumber(baseVal)}
-                                                                    </span>
-                                                                )}
-                                                                {cost.method === 'percent_total_land' && (
-                                                                    <span className="font-semibold text-green-700">{formatNumber(residentialLandValue)}</span>
-                                                                )}
-                                                                {cost.method === 'percent_cash_land' && (
-                                                                    <span className="font-semibold text-green-700">{formatNumber(residentialLandValue * cashPercent / 100)}</span>
-                                                                )}
-                                                                {cost.method === 'fixed' && !isLand && (
-                                                                    <span className="text-gray-400 italic">—</span>
-                                                                )}
+                                                                {isRate && <span className="font-semibold text-blue-700">{formatInput(areaVal)} sqm</span>}
+                                                                {isPct  && <span className="font-semibold text-purple-700">{formatNumber(baseVal)}</span>}
+                                                                {cost.method === 'percent_total_land'  && <span className="font-semibold text-green-700">{formatNumber(a.landValue)}</span>}
+                                                                {cost.method === 'percent_cash_land'   && <span className="font-semibold text-green-700">{formatNumber(a.cashLandValue)}</span>}
+                                                                {cost.method === 'percent_inkind_land' && <span className="font-semibold text-green-700">{formatNumber(a.inKindLandValue)}</span>}
+                                                                {cost.method === 'fixed' && !isLand && <span className="text-gray-400 italic">—</span>}
                                                             </td>
 
-                                                            {/* Input Value (rate or %) */}
+                                                            {/* Input Value */}
                                                             <td className="p-2 border-b border-gray-200">
                                                                 {isLand ? (
                                                                     <span className="text-xs text-gray-500 text-right block">{formatNumber(cost.value)}</span>
                                                                 ) : (
                                                                     <div className="flex items-center gap-0.5 justify-end">
-                                                                        {isPct || cost.method.startsWith('percent_')
-                                                                            ? <span className="text-gray-500 text-xs">%</span>
-                                                                            : isRate
-                                                                                ? <span className="text-gray-500 text-xs">$/sqm</span>
-                                                                                : null
-                                                                        }
+                                                                        {isPct || cost.method.startsWith('percent_') ? <span className="text-gray-500 text-xs">%</span> : isRate ? <span className="text-gray-500 text-xs">$/sqm</span> : null}
                                                                         <input type="number" value={cost.value}
                                                                             onChange={e => updateResidentialCost(cost.id, 'value', parseFloat(e.target.value)||0)}
                                                                             className="w-20 px-2 py-1 border border-yellow-300 rounded text-xs text-right"
@@ -2048,19 +2069,72 @@
                                                                 )}
                                                             </td>
 
-                                                            {/* Phasing */}
-                                                            <td className="p-2 border-b border-gray-200">
+                                                            {/* Period Wise Allocation % */}
+                                                            <td className="p-2 border-b border-gray-200" style={{minWidth:'200px'}}>
                                                                 {isLand ? (
-                                                                    <span className="text-xs text-gray-400">100%</span>
+                                                                    <span className="text-xs text-gray-400">100% (Period 0)</span>
                                                                 ) : (
                                                                     <div>
-                                                                        <input type="text" value={cost.phasing}
-                                                                            onChange={e => updateResidentialCost(cost.id, 'phasing', e.target.value)}
-                                                                            className={`w-full px-2 py-1 border rounded text-xs ${!validation.valid ? 'border-red-400 bg-red-50' : 'border-yellow-300'}`}
-                                                                            placeholder="even or 30,25,20,..."/>
-                                                                        {!validation.valid && (
-                                                                            <div className="text-red-500 text-xs mt-0.5">{validation.error}</div>
-                                                                        )}
+                                                                        <select
+                                                                            value={getPhasingMode(cost)}
+                                                                            onChange={e => {
+                                                                                const mode = e.target.value;
+                                                                                if (mode === 'even') {
+                                                                                    updateResidentialCost(cost.id, 'phasing', 'even');
+                                                                                } else {
+                                                                                    const cnt = Math.max(1, cost.endPeriod - cost.startPeriod + 1);
+                                                                                    updateResidentialCost(cost.id, 'phasing', {type:'manual', values: Array(cnt).fill(0)});
+                                                                                }
+                                                                            }}
+                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1"
+                                                                        >
+                                                                            <option value="even">Even Distribution</option>
+                                                                            <option value="manual">Manual Allocation %</option>
+                                                                        </select>
+                                                                        {getPhasingMode(cost) === 'manual' && (() => {
+                                                                            const cnt = Math.max(1, cost.endPeriod - cost.startPeriod + 1);
+                                                                            const vals = getPhasingValues(cost);
+                                                                            const filledVals = Array(cnt).fill(0).map((_, i) => vals[i] !== undefined ? vals[i] : 0);
+                                                                            const validation = validatePhasingValues(filledVals, cost.startPeriod, cost.endPeriod);
+                                                                            const totalPct = filledVals.reduce((a,b)=>a+b,0);
+                                                                            return (
+                                                                                <div className="border border-gray-200 rounded bg-gray-50 p-1" style={{overflowX:'auto'}}>
+                                                                                    <table className="text-xs" style={{minWidth: Math.max(200, cnt*55)+'px'}}>
+                                                                                        <thead>
+                                                                                            <tr className="bg-gray-200">
+                                                                                                <td className="px-1 py-0.5 font-semibold text-gray-600 whitespace-nowrap">Period</td>
+                                                                                                <td className="px-1 py-0.5 font-semibold text-center text-gray-600 whitespace-nowrap">Total</td>
+                                                                                                {filledVals.map((_, i) => (
+                                                                                                    <td key={i} className="px-1 py-0.5 font-semibold text-center text-gray-600 whitespace-nowrap">
+                                                                                                        {modelType==='monthly'?'M':'Y'}{cost.startPeriod+i}
+                                                                                                    </td>
+                                                                                                ))}
+                                                                                            </tr>
+                                                                                        </thead>
+                                                                                        <tbody>
+                                                                                            <tr>
+                                                                                                <td className="px-1 py-0.5 text-gray-500 whitespace-nowrap">Alloc %</td>
+                                                                                                <td className={`px-1 py-0.5 text-center font-bold whitespace-nowrap ${!validation.valid?'text-red-600':'text-green-700'}`}>
+                                                                                                    {totalPct.toFixed(1)}%
+                                                                                                </td>
+                                                                                                {filledVals.map((v,i) => (
+                                                                                                    <td key={i} className="px-0.5 py-0.5">
+                                                                                                        <input type="number" value={v} min="0" max="100" step="0.1"
+                                                                                                            onChange={e => {
+                                                                                                                const nv=[...filledVals]; nv[i]=parseFloat(e.target.value)||0;
+                                                                                                                updateResidentialCost(cost.id,'phasing',{type:'manual',values:nv});
+                                                                                                            }}
+                                                                                                            className={`w-12 px-1 py-0.5 border rounded text-center ${!validation.valid?'border-red-400 bg-red-50':'border-yellow-300'}`}
+                                                                                                        />
+                                                                                                    </td>
+                                                                                                ))}
+                                                                                            </tr>
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                    {!validation.valid && <div className="text-red-500 text-xs mt-0.5">{validation.error} — must total 100%</div>}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </div>
                                                                 )}
                                                             </td>
@@ -2068,8 +2142,7 @@
                                                             {/* Delete */}
                                                             <td className="p-2 border-b border-gray-200 text-center">
                                                                 {cost.canDelete && (
-                                                                    <button onClick={() => deleteResidentialCost(cost.id)}
-                                                                        className="text-red-500 hover:text-red-700 text-lg">🗑️</button>
+                                                                    <button onClick={() => deleteResidentialCost(cost.id)} className="text-red-500 hover:text-red-700 text-lg">🗑️</button>
                                                                 )}
                                                             </td>
                                                         </tr>
@@ -2146,13 +2219,14 @@
                                                         <th className="p-2 text-right" style={{minWidth:'120px'}}>Area / Base Value</th>
                                                         <th className="p-2 text-right" style={{minWidth:'90px'}}>Input Value</th>
                                                         <th className="p-2 text-right" style={{minWidth:'110px'}}>Total Cost</th>
-                                                        <th className="p-2 text-center" style={{minWidth:'65px'}}>Start</th>
-                                                        <th className="p-2 text-center" style={{minWidth:'65px'}}>End</th>
-                                                        <th className="p-2 text-left" style={{minWidth:'150px'}}>Phasing</th>
+                                                        <th className="p-2 text-center" style={{minWidth:'75px'}}>Start Period</th>
+                                                        <th className="p-2 text-center" style={{minWidth:'75px'}}>End Period</th>
+                                                        <th className="p-2 text-left" style={{minWidth:'200px'}}>Period Wise Allocation %</th>
                                                         <th className="p-2 text-center" style={{minWidth:'40px'}}></th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
+                                                                                                {/* Row body */}
                                                 {hospitalityCosts.map((cost, idx) => {
                                                     const isLand  = cost.id === 1;
                                                     const isRate  = cost.method.startsWith('rate_');
@@ -2160,11 +2234,13 @@
                                                     const areaVal = isRate ? getMethodBase(cost.method, 'hospitality') : null;
                                                     const baseVal = isPct  ? getSelectedBase(cost, hospitalityCosts, 'hospitality') : null;
                                                     const total   = calculateItemTotal(cost, 'hospitality');
-                                                    const validation = validatePhasing(cost.phasing, cost.startPeriod, cost.endPeriod);
                                                     const otherCosts = hospitalityCosts.filter(c => c.id !== cost.id);
                                                     const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                                                    const a = getAreas('hospitality');
                                                     return (
                                                         <tr key={cost.id} className={rowBg}>
+
+                                                            {/* Cost Item Name */}
                                                             <td className="p-2 border-b border-gray-200">
                                                                 <input type="text" value={cost.name}
                                                                     onChange={e => updateHospitalityCost(cost.id, 'name', e.target.value)}
@@ -2172,6 +2248,8 @@
                                                                     className={`w-full px-2 py-1 border rounded text-xs ${isLand ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-yellow-300'}`}
                                                                 />
                                                             </td>
+
+                                                            {/* Calculation Method */}
                                                             <td className="p-2 border-b border-gray-200">
                                                                 {isLand ? (
                                                                     <span className="text-xs text-gray-400 italic">Fixed (Auto-calculated)</span>
@@ -2190,10 +2268,11 @@
                                                                                 <option value="rate_gfa">GFA</option>
                                                                                 <option value="rate_bua">BUA</option>
                                                                             </optgroup>
-                                                                            <optgroup label="── Percentage ──">
+                                                                            <optgroup label="── Percentage of ──">
                                                                                 <option value="percent_base">% of Selected Costs ▾</option>
-                                                                                <option value="percent_total_land">% of Total Land Value (incl. In-Kind)</option>
-                                                                                <option value="percent_cash_land">% of Cash Purchase Land Value</option>
+                                                                                <option value="percent_total_land">% of Total Land Cost</option>
+                                                                                <option value="percent_cash_land">% of Cash Land Value</option>
+                                                                                <option value="percent_inkind_land">% of In-Kind Land Value</option>
                                                                             </optgroup>
                                                                         </select>
                                                                         {isPct && (
@@ -2219,14 +2298,19 @@
                                                                     </div>
                                                                 )}
                                                             </td>
+
+                                                            {/* Area / Base Value */}
                                                             <td className="p-2 border-b border-gray-200 text-right text-xs">
                                                                 {isLand && <span className="text-gray-400 italic">—</span>}
-                                                                {isRate && <span className="font-semibold text-blue-700">{formatNumber(areaVal)} sqm</span>}
+                                                                {isRate && <span className="font-semibold text-blue-700">{formatInput(areaVal)} sqm</span>}
                                                                 {isPct  && <span className="font-semibold text-purple-700">{formatNumber(baseVal)}</span>}
-                                                                {cost.method === 'percent_total_land' && <span className="font-semibold text-green-700">{formatNumber(hospitalityLandValue)}</span>}
-                                                                {cost.method === 'percent_cash_land'  && <span className="font-semibold text-green-700">{formatNumber(hospitalityLandValue * cashPercent / 100)}</span>}
+                                                                {cost.method === 'percent_total_land'  && <span className="font-semibold text-green-700">{formatNumber(a.landValue)}</span>}
+                                                                {cost.method === 'percent_cash_land'   && <span className="font-semibold text-green-700">{formatNumber(a.cashLandValue)}</span>}
+                                                                {cost.method === 'percent_inkind_land' && <span className="font-semibold text-green-700">{formatNumber(a.inKindLandValue)}</span>}
                                                                 {cost.method === 'fixed' && !isLand && <span className="text-gray-400 italic">—</span>}
                                                             </td>
+
+                                                            {/* Input Value */}
                                                             <td className="p-2 border-b border-gray-200">
                                                                 {isLand ? (
                                                                     <span className="text-xs text-gray-500 text-right block">{formatNumber(cost.value)}</span>
@@ -2240,9 +2324,13 @@
                                                                     </div>
                                                                 )}
                                                             </td>
+
+                                                            {/* Total Cost */}
                                                             <td className="p-2 border-b border-gray-200 text-right font-bold text-green-900 text-sm">
                                                                 {formatNumber(total)}
                                                             </td>
+
+                                                            {/* Start Period */}
                                                             <td className="p-2 border-b border-gray-200 text-center">
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.startPeriod} min="0" max={constructionPeriods}
@@ -2250,6 +2338,8 @@
                                                                         className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
+
+                                                            {/* End Period */}
                                                             <td className="p-2 border-b border-gray-200 text-center">
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.endPeriod} min="0" max={constructionPeriods}
@@ -2257,17 +2347,78 @@
                                                                         className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
-                                                            <td className="p-2 border-b border-gray-200">
-                                                                {isLand ? <span className="text-xs text-gray-400">100%</span> : (
+
+                                                            {/* Period Wise Allocation % */}
+                                                            <td className="p-2 border-b border-gray-200" style={{minWidth:'200px'}}>
+                                                                {isLand ? (
+                                                                    <span className="text-xs text-gray-400">100% (Period 0)</span>
+                                                                ) : (
                                                                     <div>
-                                                                        <input type="text" value={cost.phasing}
-                                                                            onChange={e => updateHospitalityCost(cost.id, 'phasing', e.target.value)}
-                                                                            className={`w-full px-2 py-1 border rounded text-xs ${!validation.valid ? 'border-red-400 bg-red-50' : 'border-yellow-300'}`}
-                                                                            placeholder="even or 30,25,20,..."/>
-                                                                        {!validation.valid && <div className="text-red-500 text-xs mt-0.5">{validation.error}</div>}
+                                                                        <select
+                                                                            value={getPhasingMode(cost)}
+                                                                            onChange={e => {
+                                                                                const mode = e.target.value;
+                                                                                if (mode === 'even') {
+                                                                                    updateHospitalityCost(cost.id, 'phasing', 'even');
+                                                                                } else {
+                                                                                    const cnt = Math.max(1, cost.endPeriod - cost.startPeriod + 1);
+                                                                                    updateHospitalityCost(cost.id, 'phasing', {type:'manual', values: Array(cnt).fill(0)});
+                                                                                }
+                                                                            }}
+                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1"
+                                                                        >
+                                                                            <option value="even">Even Distribution</option>
+                                                                            <option value="manual">Manual Allocation %</option>
+                                                                        </select>
+                                                                        {getPhasingMode(cost) === 'manual' && (() => {
+                                                                            const cnt = Math.max(1, cost.endPeriod - cost.startPeriod + 1);
+                                                                            const vals = getPhasingValues(cost);
+                                                                            const filledVals = Array(cnt).fill(0).map((_, i) => vals[i] !== undefined ? vals[i] : 0);
+                                                                            const validation = validatePhasingValues(filledVals, cost.startPeriod, cost.endPeriod);
+                                                                            const totalPct = filledVals.reduce((a,b)=>a+b,0);
+                                                                            return (
+                                                                                <div className="border border-gray-200 rounded bg-gray-50 p-1" style={{overflowX:'auto'}}>
+                                                                                    <table className="text-xs" style={{minWidth: Math.max(200, cnt*55)+'px'}}>
+                                                                                        <thead>
+                                                                                            <tr className="bg-gray-200">
+                                                                                                <td className="px-1 py-0.5 font-semibold text-gray-600 whitespace-nowrap">Period</td>
+                                                                                                <td className="px-1 py-0.5 font-semibold text-center text-gray-600 whitespace-nowrap">Total</td>
+                                                                                                {filledVals.map((_, i) => (
+                                                                                                    <td key={i} className="px-1 py-0.5 font-semibold text-center text-gray-600 whitespace-nowrap">
+                                                                                                        {modelType==='monthly'?'M':'Y'}{cost.startPeriod+i}
+                                                                                                    </td>
+                                                                                                ))}
+                                                                                            </tr>
+                                                                                        </thead>
+                                                                                        <tbody>
+                                                                                            <tr>
+                                                                                                <td className="px-1 py-0.5 text-gray-500 whitespace-nowrap">Alloc %</td>
+                                                                                                <td className={`px-1 py-0.5 text-center font-bold whitespace-nowrap ${!validation.valid?'text-red-600':'text-green-700'}`}>
+                                                                                                    {totalPct.toFixed(1)}%
+                                                                                                </td>
+                                                                                                {filledVals.map((v,i) => (
+                                                                                                    <td key={i} className="px-0.5 py-0.5">
+                                                                                                        <input type="number" value={v} min="0" max="100" step="0.1"
+                                                                                                            onChange={e => {
+                                                                                                                const nv=[...filledVals]; nv[i]=parseFloat(e.target.value)||0;
+                                                                                                                updateHospitalityCost(cost.id,'phasing',{type:'manual',values:nv});
+                                                                                                            }}
+                                                                                                            className={`w-12 px-1 py-0.5 border rounded text-center ${!validation.valid?'border-red-400 bg-red-50':'border-yellow-300'}`}
+                                                                                                        />
+                                                                                                    </td>
+                                                                                                ))}
+                                                                                            </tr>
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                    {!validation.valid && <div className="text-red-500 text-xs mt-0.5">{validation.error} — must total 100%</div>}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </div>
                                                                 )}
                                                             </td>
+
+                                                            {/* Delete */}
                                                             <td className="p-2 border-b border-gray-200 text-center">
                                                                 {cost.canDelete && (
                                                                     <button onClick={() => deleteHospitalityCost(cost.id)} className="text-red-500 hover:text-red-700 text-lg">🗑️</button>
@@ -2343,13 +2494,14 @@
                                                         <th className="p-2 text-right" style={{minWidth:'120px'}}>Area / Base Value</th>
                                                         <th className="p-2 text-right" style={{minWidth:'90px'}}>Input Value</th>
                                                         <th className="p-2 text-right" style={{minWidth:'110px'}}>Total Cost</th>
-                                                        <th className="p-2 text-center" style={{minWidth:'65px'}}>Start</th>
-                                                        <th className="p-2 text-center" style={{minWidth:'65px'}}>End</th>
-                                                        <th className="p-2 text-left" style={{minWidth:'150px'}}>Phasing</th>
+                                                        <th className="p-2 text-center" style={{minWidth:'75px'}}>Start Period</th>
+                                                        <th className="p-2 text-center" style={{minWidth:'75px'}}>End Period</th>
+                                                        <th className="p-2 text-left" style={{minWidth:'200px'}}>Period Wise Allocation %</th>
                                                         <th className="p-2 text-center" style={{minWidth:'40px'}}></th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
+                                                                                                {/* Row body */}
                                                 {retailCosts.map((cost, idx) => {
                                                     const isLand  = cost.id === 1;
                                                     const isRate  = cost.method.startsWith('rate_');
@@ -2357,11 +2509,13 @@
                                                     const areaVal = isRate ? getMethodBase(cost.method, 'retail') : null;
                                                     const baseVal = isPct  ? getSelectedBase(cost, retailCosts, 'retail') : null;
                                                     const total   = calculateItemTotal(cost, 'retail');
-                                                    const validation = validatePhasing(cost.phasing, cost.startPeriod, cost.endPeriod);
                                                     const otherCosts = retailCosts.filter(c => c.id !== cost.id);
                                                     const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                                                    const a = getAreas('retail');
                                                     return (
                                                         <tr key={cost.id} className={rowBg}>
+
+                                                            {/* Cost Item Name */}
                                                             <td className="p-2 border-b border-gray-200">
                                                                 <input type="text" value={cost.name}
                                                                     onChange={e => updateRetailCost(cost.id, 'name', e.target.value)}
@@ -2369,6 +2523,8 @@
                                                                     className={`w-full px-2 py-1 border rounded text-xs ${isLand ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-yellow-300'}`}
                                                                 />
                                                             </td>
+
+                                                            {/* Calculation Method */}
                                                             <td className="p-2 border-b border-gray-200">
                                                                 {isLand ? (
                                                                     <span className="text-xs text-gray-400 italic">Fixed (Auto-calculated)</span>
@@ -2387,10 +2543,11 @@
                                                                                 <option value="rate_gfa">GFA</option>
                                                                                 <option value="rate_bua">BUA</option>
                                                                             </optgroup>
-                                                                            <optgroup label="── Percentage ──">
+                                                                            <optgroup label="── Percentage of ──">
                                                                                 <option value="percent_base">% of Selected Costs ▾</option>
-                                                                                <option value="percent_total_land">% of Total Land Value (incl. In-Kind)</option>
-                                                                                <option value="percent_cash_land">% of Cash Purchase Land Value</option>
+                                                                                <option value="percent_total_land">% of Total Land Cost</option>
+                                                                                <option value="percent_cash_land">% of Cash Land Value</option>
+                                                                                <option value="percent_inkind_land">% of In-Kind Land Value</option>
                                                                             </optgroup>
                                                                         </select>
                                                                         {isPct && (
@@ -2416,14 +2573,19 @@
                                                                     </div>
                                                                 )}
                                                             </td>
+
+                                                            {/* Area / Base Value */}
                                                             <td className="p-2 border-b border-gray-200 text-right text-xs">
                                                                 {isLand && <span className="text-gray-400 italic">—</span>}
-                                                                {isRate && <span className="font-semibold text-blue-700">{formatNumber(areaVal)} sqm</span>}
+                                                                {isRate && <span className="font-semibold text-blue-700">{formatInput(areaVal)} sqm</span>}
                                                                 {isPct  && <span className="font-semibold text-purple-700">{formatNumber(baseVal)}</span>}
-                                                                {cost.method === 'percent_total_land' && <span className="font-semibold text-green-700">{formatNumber(retailLandValue)}</span>}
-                                                                {cost.method === 'percent_cash_land'  && <span className="font-semibold text-green-700">{formatNumber(retailLandValue * cashPercent / 100)}</span>}
+                                                                {cost.method === 'percent_total_land'  && <span className="font-semibold text-green-700">{formatNumber(a.landValue)}</span>}
+                                                                {cost.method === 'percent_cash_land'   && <span className="font-semibold text-green-700">{formatNumber(a.cashLandValue)}</span>}
+                                                                {cost.method === 'percent_inkind_land' && <span className="font-semibold text-green-700">{formatNumber(a.inKindLandValue)}</span>}
                                                                 {cost.method === 'fixed' && !isLand && <span className="text-gray-400 italic">—</span>}
                                                             </td>
+
+                                                            {/* Input Value */}
                                                             <td className="p-2 border-b border-gray-200">
                                                                 {isLand ? (
                                                                     <span className="text-xs text-gray-500 text-right block">{formatNumber(cost.value)}</span>
@@ -2437,9 +2599,13 @@
                                                                     </div>
                                                                 )}
                                                             </td>
+
+                                                            {/* Total Cost */}
                                                             <td className="p-2 border-b border-gray-200 text-right font-bold text-purple-900 text-sm">
                                                                 {formatNumber(total)}
                                                             </td>
+
+                                                            {/* Start Period */}
                                                             <td className="p-2 border-b border-gray-200 text-center">
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.startPeriod} min="0" max={constructionPeriods}
@@ -2447,6 +2613,8 @@
                                                                         className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
+
+                                                            {/* End Period */}
                                                             <td className="p-2 border-b border-gray-200 text-center">
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.endPeriod} min="0" max={constructionPeriods}
@@ -2454,17 +2622,78 @@
                                                                         className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
-                                                            <td className="p-2 border-b border-gray-200">
-                                                                {isLand ? <span className="text-xs text-gray-400">100%</span> : (
+
+                                                            {/* Period Wise Allocation % */}
+                                                            <td className="p-2 border-b border-gray-200" style={{minWidth:'200px'}}>
+                                                                {isLand ? (
+                                                                    <span className="text-xs text-gray-400">100% (Period 0)</span>
+                                                                ) : (
                                                                     <div>
-                                                                        <input type="text" value={cost.phasing}
-                                                                            onChange={e => updateRetailCost(cost.id, 'phasing', e.target.value)}
-                                                                            className={`w-full px-2 py-1 border rounded text-xs ${!validation.valid ? 'border-red-400 bg-red-50' : 'border-yellow-300'}`}
-                                                                            placeholder="even or 30,25,20,..."/>
-                                                                        {!validation.valid && <div className="text-red-500 text-xs mt-0.5">{validation.error}</div>}
+                                                                        <select
+                                                                            value={getPhasingMode(cost)}
+                                                                            onChange={e => {
+                                                                                const mode = e.target.value;
+                                                                                if (mode === 'even') {
+                                                                                    updateRetailCost(cost.id, 'phasing', 'even');
+                                                                                } else {
+                                                                                    const cnt = Math.max(1, cost.endPeriod - cost.startPeriod + 1);
+                                                                                    updateRetailCost(cost.id, 'phasing', {type:'manual', values: Array(cnt).fill(0)});
+                                                                                }
+                                                                            }}
+                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1"
+                                                                        >
+                                                                            <option value="even">Even Distribution</option>
+                                                                            <option value="manual">Manual Allocation %</option>
+                                                                        </select>
+                                                                        {getPhasingMode(cost) === 'manual' && (() => {
+                                                                            const cnt = Math.max(1, cost.endPeriod - cost.startPeriod + 1);
+                                                                            const vals = getPhasingValues(cost);
+                                                                            const filledVals = Array(cnt).fill(0).map((_, i) => vals[i] !== undefined ? vals[i] : 0);
+                                                                            const validation = validatePhasingValues(filledVals, cost.startPeriod, cost.endPeriod);
+                                                                            const totalPct = filledVals.reduce((a,b)=>a+b,0);
+                                                                            return (
+                                                                                <div className="border border-gray-200 rounded bg-gray-50 p-1" style={{overflowX:'auto'}}>
+                                                                                    <table className="text-xs" style={{minWidth: Math.max(200, cnt*55)+'px'}}>
+                                                                                        <thead>
+                                                                                            <tr className="bg-gray-200">
+                                                                                                <td className="px-1 py-0.5 font-semibold text-gray-600 whitespace-nowrap">Period</td>
+                                                                                                <td className="px-1 py-0.5 font-semibold text-center text-gray-600 whitespace-nowrap">Total</td>
+                                                                                                {filledVals.map((_, i) => (
+                                                                                                    <td key={i} className="px-1 py-0.5 font-semibold text-center text-gray-600 whitespace-nowrap">
+                                                                                                        {modelType==='monthly'?'M':'Y'}{cost.startPeriod+i}
+                                                                                                    </td>
+                                                                                                ))}
+                                                                                            </tr>
+                                                                                        </thead>
+                                                                                        <tbody>
+                                                                                            <tr>
+                                                                                                <td className="px-1 py-0.5 text-gray-500 whitespace-nowrap">Alloc %</td>
+                                                                                                <td className={`px-1 py-0.5 text-center font-bold whitespace-nowrap ${!validation.valid?'text-red-600':'text-green-700'}`}>
+                                                                                                    {totalPct.toFixed(1)}%
+                                                                                                </td>
+                                                                                                {filledVals.map((v,i) => (
+                                                                                                    <td key={i} className="px-0.5 py-0.5">
+                                                                                                        <input type="number" value={v} min="0" max="100" step="0.1"
+                                                                                                            onChange={e => {
+                                                                                                                const nv=[...filledVals]; nv[i]=parseFloat(e.target.value)||0;
+                                                                                                                updateRetailCost(cost.id,'phasing',{type:'manual',values:nv});
+                                                                                                            }}
+                                                                                                            className={`w-12 px-1 py-0.5 border rounded text-center ${!validation.valid?'border-red-400 bg-red-50':'border-yellow-300'}`}
+                                                                                                        />
+                                                                                                    </td>
+                                                                                                ))}
+                                                                                            </tr>
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                    {!validation.valid && <div className="text-red-500 text-xs mt-0.5">{validation.error} — must total 100%</div>}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </div>
                                                                 )}
                                                             </td>
+
+                                                            {/* Delete */}
                                                             <td className="p-2 border-b border-gray-200 text-center">
                                                                 {cost.canDelete && (
                                                                     <button onClick={() => deleteRetailCost(cost.id)} className="text-red-500 hover:text-red-700 text-lg">🗑️</button>
