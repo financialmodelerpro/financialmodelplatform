@@ -601,10 +601,19 @@
             };
 
             const getSelectedBase = (cost, costs, assetType) => {
+                const a = getAreas(assetType);
+                const LAND_VALUES = {
+                    'land_total':  a ? a.landValue       : 0,
+                    'land_cash':   a ? a.cashLandValue   : 0,
+                    'land_inkind': a ? a.inKindLandValue : 0,
+                };
                 return (cost.selectedIds||[])
                     .filter(sid => sid !== cost.id)
-                    .map(sid => costs.find(c => c.id === sid)).filter(Boolean)
-                    .reduce((sum, c) => sum + calculateItemTotal(c, assetType, costs), 0);
+                    .reduce((sum, sid) => {
+                        if (LAND_VALUES.hasOwnProperty(sid)) return sum + (LAND_VALUES[sid] || 0);
+                        const c = costs.find(c => c.id === sid);
+                        return c ? sum + calculateItemTotal(c, assetType, costs) : sum;
+                    }, 0);
             };
 
             const calculateItemTotal = (cost, assetType='residential', costsArr=null) => {
@@ -1997,23 +2006,41 @@
                                                                             </optgroup>
                                                                         </select>
                                                                         {isPct && (
-                                                                            <div className="border border-blue-200 rounded bg-white shadow-sm" style={{maxHeight:'110px', overflowY:'auto', fontSize:'0.68rem'}}>
-                                                                                {otherCosts.length === 0
-                                                                                    ? <div className="text-gray-400 px-2 py-1 italic">No other items yet</div>
-                                                                                    : otherCosts.map(oc => (
-                                                                                        <label key={oc.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
-                                                                                            <input type="checkbox"
-                                                                                                checked={(cost.selectedIds||[]).includes(oc.id)}
-                                                                                                onChange={e => {
-                                                                                                    const sel = cost.selectedIds || [];
-                                                                                                    updateResidentialCost(cost.id, 'selectedIds',
-                                                                                                        e.target.checked ? [...sel, oc.id] : sel.filter(x => x !== oc.id));
-                                                                                                }}
-                                                                                            />
-                                                                                            <span className="text-gray-700">{oc.name}</span>
-                                                                                        </label>
-                                                                                    ))
-                                                                                }
+                                                                            <div className="border border-blue-200 rounded bg-white shadow-sm" style={{maxHeight:'150px', overflowY:'auto', fontSize:'0.68rem'}}>
+                                                                                {/* Special land value items always at top */}
+                                                                                <div className="bg-blue-50 border-b border-blue-100 px-1 py-0.5 text-gray-500 font-semibold" style={{fontSize:'0.6rem'}}>LAND VALUES</div>
+                                                                                {[
+                                                                                    {id:'land_total',  label:'Total Land Cost'},
+                                                                                    {id:'land_cash',   label:'Cash Land Value'},
+                                                                                    {id:'land_inkind', label:'In-Kind Land Value'},
+                                                                                ].map(lv => (
+                                                                                    <label key={lv.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
+                                                                                        <input type="checkbox"
+                                                                                            checked={(cost.selectedIds||[]).includes(lv.id)}
+                                                                                            onChange={e => {
+                                                                                                const sel = cost.selectedIds || [];
+                                                                                                updateResidentialCost(cost.id, 'selectedIds',
+                                                                                                    e.target.checked ? [...sel, lv.id] : sel.filter(x => x !== lv.id));
+                                                                                            }}
+                                                                                        />
+                                                                                        <span className="text-blue-700 font-medium">{lv.label}</span>
+                                                                                    </label>
+                                                                                ))}
+                                                                                {/* Other cost rows */}
+                                                                                {otherCosts.length > 0 && <div className="bg-gray-100 border-b border-gray-200 px-1 py-0.5 text-gray-500 font-semibold" style={{fontSize:'0.6rem'}}>COST ITEMS</div>}
+                                                                                {otherCosts.map(oc => (
+                                                                                    <label key={oc.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
+                                                                                        <input type="checkbox"
+                                                                                            checked={(cost.selectedIds||[]).includes(oc.id)}
+                                                                                            onChange={e => {
+                                                                                                const sel = cost.selectedIds || [];
+                                                                                                updateResidentialCost(cost.id, 'selectedIds',
+                                                                                                    e.target.checked ? [...sel, oc.id] : sel.filter(x => x !== oc.id));
+                                                                                            }}
+                                                                                        />
+                                                                                        <span className="text-gray-700">{oc.name}</span>
+                                                                                    </label>
+                                                                                ))}
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -2276,23 +2303,41 @@
                                                                             </optgroup>
                                                                         </select>
                                                                         {isPct && (
-                                                                            <div className="border border-blue-200 rounded bg-white shadow-sm" style={{maxHeight:'110px', overflowY:'auto', fontSize:'0.68rem'}}>
-                                                                                {otherCosts.length === 0
-                                                                                    ? <div className="text-gray-400 px-2 py-1 italic">No other items yet</div>
-                                                                                    : otherCosts.map(oc => (
-                                                                                        <label key={oc.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
-                                                                                            <input type="checkbox"
-                                                                                                checked={(cost.selectedIds||[]).includes(oc.id)}
-                                                                                                onChange={e => {
-                                                                                                    const sel = cost.selectedIds || [];
-                                                                                                    updateHospitalityCost(cost.id, 'selectedIds',
-                                                                                                        e.target.checked ? [...sel, oc.id] : sel.filter(x => x !== oc.id));
-                                                                                                }}
-                                                                                            />
-                                                                                            <span className="text-gray-700">{oc.name}</span>
-                                                                                        </label>
-                                                                                    ))
-                                                                                }
+                                                                            <div className="border border-blue-200 rounded bg-white shadow-sm" style={{maxHeight:'150px', overflowY:'auto', fontSize:'0.68rem'}}>
+                                                                                {/* Special land value items always at top */}
+                                                                                <div className="bg-blue-50 border-b border-blue-100 px-1 py-0.5 text-gray-500 font-semibold" style={{fontSize:'0.6rem'}}>LAND VALUES</div>
+                                                                                {[
+                                                                                    {id:'land_total',  label:'Total Land Cost'},
+                                                                                    {id:'land_cash',   label:'Cash Land Value'},
+                                                                                    {id:'land_inkind', label:'In-Kind Land Value'},
+                                                                                ].map(lv => (
+                                                                                    <label key={lv.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
+                                                                                        <input type="checkbox"
+                                                                                            checked={(cost.selectedIds||[]).includes(lv.id)}
+                                                                                            onChange={e => {
+                                                                                                const sel = cost.selectedIds || [];
+                                                                                                updateHospitalityCost(cost.id, 'selectedIds',
+                                                                                                    e.target.checked ? [...sel, lv.id] : sel.filter(x => x !== lv.id));
+                                                                                            }}
+                                                                                        />
+                                                                                        <span className="text-blue-700 font-medium">{lv.label}</span>
+                                                                                    </label>
+                                                                                ))}
+                                                                                {/* Other cost rows */}
+                                                                                {otherCosts.length > 0 && <div className="bg-gray-100 border-b border-gray-200 px-1 py-0.5 text-gray-500 font-semibold" style={{fontSize:'0.6rem'}}>COST ITEMS</div>}
+                                                                                {otherCosts.map(oc => (
+                                                                                    <label key={oc.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
+                                                                                        <input type="checkbox"
+                                                                                            checked={(cost.selectedIds||[]).includes(oc.id)}
+                                                                                            onChange={e => {
+                                                                                                const sel = cost.selectedIds || [];
+                                                                                                updateHospitalityCost(cost.id, 'selectedIds',
+                                                                                                    e.target.checked ? [...sel, oc.id] : sel.filter(x => x !== oc.id));
+                                                                                            }}
+                                                                                        />
+                                                                                        <span className="text-gray-700">{oc.name}</span>
+                                                                                    </label>
+                                                                                ))}
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -2551,23 +2596,41 @@
                                                                             </optgroup>
                                                                         </select>
                                                                         {isPct && (
-                                                                            <div className="border border-blue-200 rounded bg-white shadow-sm" style={{maxHeight:'110px', overflowY:'auto', fontSize:'0.68rem'}}>
-                                                                                {otherCosts.length === 0
-                                                                                    ? <div className="text-gray-400 px-2 py-1 italic">No other items yet</div>
-                                                                                    : otherCosts.map(oc => (
-                                                                                        <label key={oc.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
-                                                                                            <input type="checkbox"
-                                                                                                checked={(cost.selectedIds||[]).includes(oc.id)}
-                                                                                                onChange={e => {
-                                                                                                    const sel = cost.selectedIds || [];
-                                                                                                    updateRetailCost(cost.id, 'selectedIds',
-                                                                                                        e.target.checked ? [...sel, oc.id] : sel.filter(x => x !== oc.id));
-                                                                                                }}
-                                                                                            />
-                                                                                            <span className="text-gray-700">{oc.name}</span>
-                                                                                        </label>
-                                                                                    ))
-                                                                                }
+                                                                            <div className="border border-blue-200 rounded bg-white shadow-sm" style={{maxHeight:'150px', overflowY:'auto', fontSize:'0.68rem'}}>
+                                                                                {/* Special land value items always at top */}
+                                                                                <div className="bg-blue-50 border-b border-blue-100 px-1 py-0.5 text-gray-500 font-semibold" style={{fontSize:'0.6rem'}}>LAND VALUES</div>
+                                                                                {[
+                                                                                    {id:'land_total',  label:'Total Land Cost'},
+                                                                                    {id:'land_cash',   label:'Cash Land Value'},
+                                                                                    {id:'land_inkind', label:'In-Kind Land Value'},
+                                                                                ].map(lv => (
+                                                                                    <label key={lv.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
+                                                                                        <input type="checkbox"
+                                                                                            checked={(cost.selectedIds||[]).includes(lv.id)}
+                                                                                            onChange={e => {
+                                                                                                const sel = cost.selectedIds || [];
+                                                                                                updateRetailCost(cost.id, 'selectedIds',
+                                                                                                    e.target.checked ? [...sel, lv.id] : sel.filter(x => x !== lv.id));
+                                                                                            }}
+                                                                                        />
+                                                                                        <span className="text-blue-700 font-medium">{lv.label}</span>
+                                                                                    </label>
+                                                                                ))}
+                                                                                {/* Other cost rows */}
+                                                                                {otherCosts.length > 0 && <div className="bg-gray-100 border-b border-gray-200 px-1 py-0.5 text-gray-500 font-semibold" style={{fontSize:'0.6rem'}}>COST ITEMS</div>}
+                                                                                {otherCosts.map(oc => (
+                                                                                    <label key={oc.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
+                                                                                        <input type="checkbox"
+                                                                                            checked={(cost.selectedIds||[]).includes(oc.id)}
+                                                                                            onChange={e => {
+                                                                                                const sel = cost.selectedIds || [];
+                                                                                                updateRetailCost(cost.id, 'selectedIds',
+                                                                                                    e.target.checked ? [...sel, oc.id] : sel.filter(x => x !== oc.id));
+                                                                                            }}
+                                                                                        />
+                                                                                        <span className="text-gray-700">{oc.name}</span>
+                                                                                    </label>
+                                                                                ))}
                                                                             </div>
                                                                         )}
                                                                     </div>
