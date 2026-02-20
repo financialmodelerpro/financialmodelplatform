@@ -2029,11 +2029,15 @@
                                                             </tr>
                                                         ))}
                                                         {/* Total row — same color for both tables */}
-                                                        <tr className="text-white font-bold" style={{background: '#1e3a5f'}}>
-                                                            <td className="p-3">{totalLabel}</td>
-                                                            <td className="p-3 text-right">{fmtCell(totals.reduce((a,b)=>a+b,0))}</td>
+                                                        <tr style={{background: '#1e3a5f', color: '#ffffff'}}>
+                                                            <td className="p-3 font-bold" style={{color:'#ffffff'}}>{totalLabel}</td>
+                                                            <td className="p-3 text-right font-bold" style={{color:'#ffffff'}}>
+                                                                {Math.round(totals.reduce((a,b)=>a+b,0)).toLocaleString('en-US')}
+                                                            </td>
                                                             {totals.map((v, ci) => (
-                                                                <td key={ci} className="p-3 text-right">{fmtCell(v)}</td>
+                                                                <td key={ci} className="p-3 text-right font-bold" style={{color:'#ffffff'}}>
+                                                                    {v > 0 ? Math.round(v).toLocaleString('en-US') : '—'}
+                                                                </td>
                                                             ))}
                                                         </tr>
                                                     </tbody>
