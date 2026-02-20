@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real Estate Financial Modeling Platform - Module 1 Complete</title>
+    <title>Real Estate Financial Modeling Platform - V7 Financing</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -884,6 +884,94 @@
                     setRetailCustomRows(updateRows(retailCustomRows));
                 }
             };
+
+
+            // ============ FINANCING CALCULATIONS ============
+
+            // Build period-by-period financing schedule for one asset
+            const buildFinancingSchedule = (assetType, capex) => {
+                const totalPeriods = constructionPeriods + operationsPeriods;
+                const periodicRate = (interestRate / 100) / (modelType === 'monthly' ? 12 : 1);
+
+                // Build cost distribution per period per line item (construction periods only for costs)
+                const costLines = capex.items.map((item, idx) => {
+                    const costs = assetType==='residential' ? residentialCosts : assetType==='hospitality' ? hospitalityCosts : retailCosts;
+                    const costId = costs[idx]?.id ?? idx;
+                    const debtPct = getLineDebtPct(assetType, costId) / 100;
+                    const eqPct = 1 - debtPct;
+                    return {
+                        name: item.name,
+                        costId,
+                        debtPct,
+                        eqPct,
+                        distribution: item.distribution, // length = constructionPeriods+1
+                        total: item.total
+                    };
+                });
+
+                // Debt Schedule
+                const debtOpening = Array(totalPeriods + 1).fill(0);
+                const debtAdditions = Array(totalPeriods + 1).fill(0);
+                const debtRepayment = Array(totalPeriods + 1).fill(0);
+                const debtClosing = Array(totalPeriods + 1).fill(0);
+                const equityOpening = Array(totalPeriods + 1).fill(0);
+                const equityAdditions = Array(totalPeriods + 1).fill(0);
+                const equityClosing = Array(totalPeriods + 1).fill(0);
+                const interestCharge = Array(totalPeriods + 1).fill(0);
+
+                // Total debt drawn in construction
+                let totalDebtDrawn = 0;
+                costLines.forEach(line => {
+                    line.distribution.forEach((amt, p) => {
+                        if (p <= constructionPeriods) {
+                            debtAdditions[p] += amt * line.debtPct;
+                            equityAdditions[p] += amt * line.eqPct;
+                            totalDebtDrawn += amt * line.debtPct;
+                        }
+                    });
+                });
+
+                // Straight-line repayment over operations period (starting period constructionPeriods+1)
+                const totalDebt = totalDebtDrawn;
+                const repaymentPerPeriod = operationsPeriods > 0 ? totalDebt / operationsPeriods : 0;
+                for (let p = constructionPeriods + 1; p <= totalPeriods; p++) {
+                    debtRepayment[p] = repaymentPerPeriod;
+                }
+
+                // Build running balances
+                for (let p = 0; p <= totalPeriods; p++) {
+                    debtOpening[p] = p === 0 ? 0 : debtClosing[p-1];
+                    const interestBase = debtOpening[p];
+                    interestCharge[p] = interestBase * periodicRate;
+                    const capitalizedInterest = capitalizeInterest ? interestCharge[p] : 0;
+                    debtClosing[p] = debtOpening[p] + debtAdditions[p] + capitalizedInterest - debtRepayment[p];
+
+                    equityOpening[p] = p === 0 ? 0 : equityClosing[p-1];
+                    equityClosing[p] = equityOpening[p] + equityAdditions[p];
+                }
+
+                return {
+                    costLines,
+                    debtOpening, debtAdditions, debtRepayment, debtClosing,
+                    equityOpening, equityAdditions, equityClosing,
+                    interestCharge,
+                    totalDebt,
+                    totalEquity: costLines.reduce((s, l) => s + l.total * l.eqPct, 0),
+                    totalInterest: interestCharge.reduce((a,b) => a+b, 0),
+                    periodicRate
+                };
+            };
+
+            const resFinancing = buildFinancingSchedule('residential', residentialCapex);
+            const hospFinancing = buildFinancingSchedule('hospitality', hospitalityCapex);
+            const retailFinancing = buildFinancingSchedule('retail', retailCapex);
+
+            const getFinancingForAsset = (a) => a==='residential' ? resFinancing : a==='hospitality' ? hospFinancing : retailFinancing;
+            const getCapexForAsset = (a) => a==='residential' ? residentialCapex : a==='hospitality' ? hospitalityCapex : retailCapex;
+            const getCostsForAsset = (a) => a==='residential' ? residentialCosts : a==='hospitality' ? hospitalityCosts : retailCosts;
+            const assetColor = (a) => a==='residential' ? '#2563eb' : a==='hospitality' ? '#059669' : '#7c3aed';
+            const assetBg = (a) => a==='residential' ? '#eff6ff' : a==='hospitality' ? '#f0fdf4' : '#faf5ff';
+            const assetLabel = (a) => a==='residential' ? 'Residential' : a==='hospitality' ? 'Hospitality' : 'Retail';
 
             return (
                 <div className="min-h-screen">
@@ -2932,12 +3020,367 @@
                             {/* Financing Tab */}
                                 {activeTab === 'financing' && (
                                     <div className="module-card p-6">
-                                        <h3 className="text-2xl font-bold mb-6 text-gray-800">Financing Structure</h3>
-                                        <div className="flex flex-col items-center justify-center py-24 text-center">
-                                            <div className="text-6xl mb-6">🏗️</div>
-                                            <h4 className="text-2xl font-bold text-gray-500 mb-3">Coming Soon</h4>
-                                            <p className="text-gray-400 max-w-md">The Financing Structure module is currently under development. Check back soon.</p>
+                                        <h3 className="text-2xl font-bold mb-4 text-gray-800">Financing Structure</h3>
+
+                                        {/* ── GLOBAL SETTINGS ── */}
+                                        <div className="mb-5 p-5 rounded-xl border-2 border-indigo-200 bg-indigo-50">
+                                            <h4 className="font-bold text-indigo-800 mb-4 text-base">⚙️ Global Financing Settings</h4>
+                                            <div className="grid gap-6" style={{gridTemplateColumns:'1fr 1fr'}}>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-gray-700 mb-2">Financing Ratio Mode</label>
+                                                    <div className="flex gap-2 mb-3">
+                                                        {[['fixed','🔒 Fixed Ratio'],['separate','⚡ Separate per Line']].map(([k,lbl])=>(
+                                                            <button key={k} onClick={()=>setFinancingMode(k)}
+                                                                className="flex-1 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all"
+                                                                style={{background:financingMode===k?'linear-gradient(135deg,#667eea,#764ba2)':'white',
+                                                                        color:financingMode===k?'white':'#374151',
+                                                                        borderColor:financingMode===k?'#667eea':'#d1d5db'}}>
+                                                                {lbl}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    {financingMode==='fixed' ? (
+                                                        <div className="flex gap-3">
+                                                            <div className="flex-1">
+                                                                <label className="block text-xs text-gray-600 mb-1">Global Debt %</label>
+                                                                <input type="number" min="0" max="100" value={globalDebtPct}
+                                                                    onChange={e=>setGlobalDebtPct(Math.min(100,Math.max(0,parseFloat(e.target.value)||0)))}
+                                                                    className="input-assumption w-full px-3 py-2 rounded border text-sm"/>
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <label className="block text-xs text-gray-600 mb-1">Global Equity %</label>
+                                                                <div className="w-full px-3 py-2 rounded border bg-white text-sm font-bold text-green-700">{(100-globalDebtPct).toFixed(1)}%</div>
+                                                            </div>
+                                                        </div>
+                                                    ):(
+                                                        <p className="text-xs text-indigo-700 bg-indigo-100 rounded p-2">✏️ Set individual Debt % per cost line in the Summary tab below</p>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-bold text-gray-700 mb-2">Interest Rate & Treatment</label>
+                                                    <div className="flex gap-3 mb-3">
+                                                        <div className="flex-1">
+                                                            <label className="block text-xs text-gray-600 mb-1">Annual Rate (%)</label>
+                                                            <input type="number" min="0" max="100" step="0.1" value={interestRate}
+                                                                onChange={e=>setInterestRate(parseFloat(e.target.value)||0)}
+                                                                className="input-assumption w-full px-3 py-2 rounded border text-sm"/>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <label className="block text-xs text-gray-600 mb-1">Periodic Rate ({modelType==='monthly'?'Monthly':'Annual'})</label>
+                                                            <div className="w-full px-3 py-2 rounded border bg-white text-sm font-bold text-blue-700">
+                                                                {modelType==='monthly'?(interestRate/12).toFixed(4):interestRate.toFixed(2)}%
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {[['expense','💸 Expense Separately'],[true,'📦 Capitalize into Debt']].map(([k,lbl])=>(
+                                                            <button key={String(k)} onClick={()=>setCapitalizeInterest(k===true)}
+                                                                className="flex-1 py-1.5 px-2 rounded text-xs font-semibold border-2 transition-all"
+                                                                style={{background:(k===true?capitalizeInterest:!capitalizeInterest)?'#f59e0b':'white',
+                                                                        color:(k===true?capitalizeInterest:!capitalizeInterest)?'white':'#374151',
+                                                                        borderColor:(k===true?capitalizeInterest:!capitalizeInterest)?'#f59e0b':'#d1d5db'}}>
+                                                                {lbl}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {/* Grand Summary KPIs */}
+                                            {(()=>{
+                                                const assets=['residential','hospitality','retail'].filter(a=>a==='retail'||(a==='residential'&&showResidential)||(a==='hospitality'&&showHospitality));
+                                                const tCost=assets.reduce((s,a)=>s+getCapexForAsset(a).totals.reduce((x,y)=>x+y,0),0);
+                                                const tDebt=assets.reduce((s,a)=>s+getFinancingForAsset(a).totalDebt,0);
+                                                const tEq=assets.reduce((s,a)=>s+getFinancingForAsset(a).totalEquity,0);
+                                                const tInt=assets.reduce((s,a)=>s+getFinancingForAsset(a).totalInterest,0);
+                                                return (
+                                                    <div className="grid grid-cols-4 gap-3 mt-4">
+                                                        {[['Total Dev Cost',tCost,'#1e40af','#dbeafe'],['Total Debt',tDebt,'#dc2626','#fee2e2'],
+                                                          ['Total Equity',tEq,'#16a34a','#dcfce7'],['Total Finance Cost',tInt,'#d97706','#fef3c7']
+                                                        ].map(([lbl,val,c,bg])=>(
+                                                            <div key={lbl} className="rounded-lg p-3 text-center" style={{background:bg}}>
+                                                                <div className="text-xs font-medium text-gray-600 mb-1">{lbl}</div>
+                                                                <div className="text-base font-bold" style={{color:c}}>{currency} {formatNumber(val)}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
+
+                                        {/* ── ASSET TABS ── */}
+                                        <div className="flex gap-2 mb-3">
+                                            {[['residential','🏠 Residential',showResidential,'#2563eb'],
+                                              ['hospitality','🏨 Hospitality',showHospitality,'#059669'],
+                                              ['retail','🏪 Retail',true,'#7c3aed']
+                                            ].filter(t=>t[2]).map(([k,lbl,,c])=>(
+                                                <button key={k} onClick={()=>setActiveFinAsset(k)}
+                                                    className="px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all"
+                                                    style={{background:activeFinAsset===k?c:'white',color:activeFinAsset===k?'white':c,borderColor:c}}>
+                                                    {lbl}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* ── VIEW TABS ── */}
+                                        <div className="flex gap-2 mb-5 border-b-2 border-gray-200 pb-3">
+                                            {[['summary','📊 Financing Summary'],['debt','🏦 Debt Schedule'],
+                                              ['equity','💰 Equity Schedule'],['interest','📈 Finance Cost Schedule']
+                                            ].map(([k,lbl])=>(
+                                                <button key={k} onClick={()=>setActiveFinView(k)}
+                                                    className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+                                                    style={{background:activeFinView===k?'linear-gradient(135deg,#667eea,#764ba2)':'#f3f4f6',
+                                                            color:activeFinView===k?'white':'#374151'}}>
+                                                    {lbl}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* ── CONTENT ── */}
+                                        {(()=>{
+                                            const asset=activeFinAsset;
+                                            const fin=getFinancingForAsset(asset);
+                                            const capex=getCapexForAsset(asset);
+                                            const costs=getCostsForAsset(asset);
+                                            const color=assetColor(asset);
+                                            const totalPeriods=constructionPeriods+operationsPeriods;
+                                            const pLabel=p=>modelType==='monthly'?`M${p}`:`Y${p}`;
+                                            const periods=Array.from({length:totalPeriods+1},(_,p)=>p);
+
+                                            // ── HELPER: Standard Period Schedule Table ──
+                                            // rows: [{label, data:[], style:'normal'|'total'|'subtotal'|'addition'|'deduction'}]
+                                            const PeriodTable = ({rows, title, badge, badgeColor, badgeBg, note}) => (
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <h4 className="font-bold text-lg" style={{color}}>{title}</h4>
+                                                        {badge && <div className="text-sm px-3 py-1 rounded-full font-semibold" style={{background:badgeBg,color:badgeColor}}>{badge}</div>}
+                                                    </div>
+                                                    {note && <div className="mb-3 p-2 rounded-lg text-xs" style={{background:'#fef3c7',color:'#92400e'}}>{note}</div>}
+                                                    <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                                        <table style={{borderCollapse:'collapse',width:'100%',fontSize:'0.8rem',minWidth:Math.max(600,(totalPeriods+2)*80)+'px'}}>
+                                                            <thead>
+                                                                <tr style={{background:'#1f2937',color:'white',position:'sticky',top:0}}>
+                                                                    <th style={{padding:'10px 12px',textAlign:'left',minWidth:'200px',position:'sticky',left:0,background:'#1f2937',zIndex:2,borderRight:'2px solid #374151'}}>
+                                                                        Description
+                                                                    </th>
+                                                                    <th style={{padding:'10px 8px',textAlign:'right',minWidth:'100px',borderRight:'2px solid #4b5563',background:'#111827'}}>
+                                                                        Total
+                                                                    </th>
+                                                                    {periods.map(p=>(
+                                                                        <th key={p} style={{padding:'10px 8px',textAlign:'right',minWidth:'80px',
+                                                                            background: p<=constructionPeriods ? '#1f2937' : '#312e81',
+                                                                            borderLeft: p===constructionPeriods+1?'2px solid #6366f1':'1px solid #374151'}}>
+                                                                            {pLabel(p)}
+                                                                            {p===0&&<div style={{fontSize:'0.6rem',opacity:0.7}}>Pre</div>}
+                                                                            {p>0&&p<=constructionPeriods&&<div style={{fontSize:'0.6rem',opacity:0.7}}>Const</div>}
+                                                                            {p>constructionPeriods&&<div style={{fontSize:'0.6rem',opacity:0.7}}>Ops</div>}
+                                                                        </th>
+                                                                    ))}
+                                                                </tr>
+                                                                <tr style={{background:'#374151',color:'#9ca3af',fontSize:'0.65rem'}}>
+                                                                    <td style={{padding:'3px 12px',position:'sticky',left:0,background:'#374151',borderRight:'2px solid #4b5563'}}></td>
+                                                                    <td style={{padding:'3px 8px',textAlign:'right',borderRight:'2px solid #4b5563'}}>{currency}</td>
+                                                                    {periods.map(p=>(
+                                                                        <td key={p} style={{padding:'3px 8px',textAlign:'right',
+                                                                            borderLeft:p===constructionPeriods+1?'2px solid #6366f1':'1px solid #4b5563'}}>
+                                                                            {currency}
+                                                                        </td>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {rows.map((row,ri)=>{
+                                                                    const isTotal = row.style==='total';
+                                                                    const isSub = row.style==='subtotal';
+                                                                    const isAdd = row.style==='addition';
+                                                                    const isDed = row.style==='deduction';
+                                                                    const rowBg = isTotal?'#1e3a5f':isSub?'#e0e7ff':ri%2===0?'white':'#f9fafb';
+                                                                    const rowColor = isTotal?'white':isAdd?'#16a34a':isDed?'#dc2626':isSub?'#1e40af':'#374151';
+                                                                    const fw = isTotal||isSub?700:400;
+                                                                    const stickyBg = isTotal?'#1e3a5f':isSub?'#e0e7ff':ri%2===0?'white':'#f9fafb';
+                                                                    const rowTotal = row.data.reduce((a,b)=>a+b,0);
+                                                                    return (
+                                                                        <tr key={ri} style={{background:rowBg}}>
+                                                                            <td style={{padding:'8px 12px',fontWeight:fw,color:rowColor,
+                                                                                        position:'sticky',left:0,background:stickyBg,
+                                                                                        borderRight:'2px solid #e5e7eb',zIndex:1}}>
+                                                                                {row.label}
+                                                                            </td>
+                                                                            <td style={{padding:'8px',textAlign:'right',fontWeight:fw,color:rowColor,
+                                                                                        borderRight:'2px solid #e5e7eb'}}>
+                                                                                {rowTotal!==0?formatNumber(Math.abs(rowTotal)):'-'}
+                                                                            </td>
+                                                                            {row.data.map((v,p)=>(
+                                                                                <td key={p} style={{padding:'8px',textAlign:'right',fontWeight:isTotal?700:400,
+                                                                                    color:rowColor,
+                                                                                    borderLeft:p===constructionPeriods+1?'2px solid #6366f1':'1px solid #e5e7eb',
+                                                                                    background:isTotal?'#1e3a5f':undefined}}>
+                                                                                    {v!==0?formatNumber(Math.abs(v)):'-'}
+                                                                                </td>
+                                                                            ))}
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                                                        <span>■ <span style={{color:'#1f2937'}}>Dark</span> = Construction periods</span>
+                                                        <span>■ <span style={{color:'#312e81'}}>Purple</span> = Operations periods</span>
+                                                        <span style={{color:'#6366f1'}}>│ Blue line</span> = Construction → Operations boundary
+                                                    </div>
+                                                </div>
+                                            );
+
+                                            // ── SUMMARY VIEW ──
+                                            if(activeFinView==='summary'){
+                                                const totalCost=capex.totals.reduce((a,b)=>a+b,0);
+                                                return (
+                                                    <div>
+                                                        <div className="grid grid-cols-3 gap-4 mb-5">
+                                                            {[['Total Dev Cost',totalCost,'#1e40af','#dbeafe'],
+                                                              ['Total Debt',fin.totalDebt,'#dc2626','#fee2e2'],
+                                                              ['Total Equity',fin.totalEquity,'#16a34a','#dcfce7']
+                                                            ].map(([lbl,val,c,bg])=>(
+                                                                <div key={lbl} className="rounded-xl p-4 text-center" style={{background:bg}}>
+                                                                    <div className="text-sm text-gray-600">{lbl}</div>
+                                                                    <div className="text-2xl font-bold mt-1" style={{color:c}}>{currency} {formatNumber(val)}</div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* Line-item ratio table */}
+                                                        <h5 className="font-bold mb-2 text-gray-700">Cost Line Items — Debt / Equity Split</h5>
+                                                        <div className="overflow-x-auto rounded-xl border border-gray-200 mb-6">
+                                                            <table style={{borderCollapse:'collapse',width:'100%',fontSize:'0.85rem'}}>
+                                                                <thead>
+                                                                    <tr style={{background:'#1f2937',color:'white'}}>
+                                                                        {['Cost Line Item','Total Cost','Debt %','Equity %','Debt Amount','Equity Amount'].map((h,i)=>(
+                                                                            <th key={i} style={{padding:'10px 12px',textAlign:i===0?'left':'right',
+                                                                                minWidth:i===0?'200px':'110px'}}>{h}</th>
+                                                                        ))}
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {fin.costLines.map((line,idx)=>{
+                                                                        const dPct=getLineDebtPct(asset,line.costId);
+                                                                        const ePct=100-dPct;
+                                                                        return (
+                                                                            <tr key={idx} style={{background:idx%2===0?'white':'#f9fafb'}}>
+                                                                                <td style={{padding:'8px 12px',fontWeight:500}}>{line.name}</td>
+                                                                                <td style={{padding:'8px',textAlign:'right'}}>{currency} {formatNumber(line.total)}</td>
+                                                                                <td style={{padding:'8px',textAlign:'center'}}>
+                                                                                    {financingMode==='separate'?(
+                                                                                        <input type="number" min="0" max="100" step="1" value={dPct}
+                                                                                            onChange={e=>setLineDebtPct(asset,line.costId,e.target.value)}
+                                                                                            className="input-assumption"
+                                                                                            style={{width:'70px',padding:'4px 6px',borderRadius:'4px',textAlign:'center',fontSize:'0.8rem'}}/>
+                                                                                    ):(
+                                                                                        <span style={{fontWeight:700,color:'#dc2626'}}>{dPct}%</span>
+                                                                                    )}
+                                                                                </td>
+                                                                                <td style={{padding:'8px',textAlign:'center',fontWeight:700,color:'#16a34a'}}>{ePct.toFixed(1)}%</td>
+                                                                                <td style={{padding:'8px',textAlign:'right',fontWeight:600,color:'#dc2626'}}>{currency} {formatNumber(line.total*dPct/100)}</td>
+                                                                                <td style={{padding:'8px',textAlign:'right',fontWeight:600,color:'#16a34a'}}>{currency} {formatNumber(line.total*ePct/100)}</td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                                <tfoot>
+                                                                    <tr style={{background:color,color:'white'}}>
+                                                                        <td style={{padding:'10px 12px',fontWeight:700}}>TOTAL</td>
+                                                                        <td style={{padding:'10px',textAlign:'right',fontWeight:700}}>{currency} {formatNumber(totalCost)}</td>
+                                                                        <td style={{padding:'10px',textAlign:'center',fontWeight:700}}>{(fin.totalDebt/(totalCost||1)*100).toFixed(1)}%</td>
+                                                                        <td style={{padding:'10px',textAlign:'center',fontWeight:700}}>{(fin.totalEquity/(totalCost||1)*100).toFixed(1)}%</td>
+                                                                        <td style={{padding:'10px',textAlign:'right',fontWeight:700}}>{currency} {formatNumber(fin.totalDebt)}</td>
+                                                                        <td style={{padding:'10px',textAlign:'right',fontWeight:700}}>{currency} {formatNumber(fin.totalEquity)}</td>
+                                                                    </tr>
+                                                                </tfoot>
+                                                            </table>
+                                                        </div>
+
+                                                        {/* Period-by-period cost split table */}
+                                                        {PeriodTable({
+                                                            title:`${activeFinAsset.charAt(0).toUpperCase()+activeFinAsset.slice(1)} — Period-by-Period Cost Split`,
+                                                            rows:[
+                                                                {label:'Total Cost Incurred', style:'subtotal',
+                                                                 data:periods.map(p=>capex.totals[p]||0)},
+                                                                {label:'  Debt Portion', style:'addition',
+                                                                 data:periods.map(p=>fin.debtAdditions[p]||0)},
+                                                                {label:'  Equity Portion', style:'normal',
+                                                                 data:periods.map(p=>fin.equityAdditions[p]||0)},
+                                                            ]
+                                                        })}
+                                                    </div>
+                                                );
+                                            }
+
+                                            // ── DEBT SCHEDULE VIEW ──
+                                            if(activeFinView==='debt'){
+                                                return PeriodTable({
+                                                    title:`${activeFinAsset.charAt(0).toUpperCase()+activeFinAsset.slice(1)} — Debt Schedule`,
+                                                    badge:`Total Debt: ${currency} ${formatNumber(fin.totalDebt)}`,
+                                                    badgeColor:'#dc2626', badgeBg:'#fee2e2',
+                                                    note: capitalizeInterest
+                                                        ? '📦 Interest is capitalized — added to Debt Closing Balance each period'
+                                                        : '💸 Interest is expensed separately — not added to Debt balance',
+                                                    rows:[
+                                                        {label:'Opening Balance', style:'normal',
+                                                         data:periods.map(p=>fin.debtOpening[p]||0)},
+                                                        {label:'(+) Drawdowns / Additions', style:'addition',
+                                                         data:periods.map(p=>fin.debtAdditions[p]||0)},
+                                                        {label:'(+) Capitalized Interest', style:'addition',
+                                                         data:periods.map(p=>capitalizeInterest?(fin.interestCharge[p]||0):0)},
+                                                        {label:'(-) Repayment', style:'deduction',
+                                                         data:periods.map(p=>fin.debtRepayment[p]||0)},
+                                                        {label:'Closing Balance', style:'total',
+                                                         data:periods.map(p=>fin.debtClosing[p]||0)},
+                                                    ]
+                                                });
+                                            }
+
+                                            // ── EQUITY SCHEDULE VIEW ──
+                                            if(activeFinView==='equity'){
+                                                return PeriodTable({
+                                                    title:`${activeFinAsset.charAt(0).toUpperCase()+activeFinAsset.slice(1)} — Equity Schedule`,
+                                                    badge:`Total Equity: ${currency} ${formatNumber(fin.totalEquity)}`,
+                                                    badgeColor:'#16a34a', badgeBg:'#dcfce7',
+                                                    note:'✅ Equity contributions drawn in same period as cost incurred',
+                                                    rows:[
+                                                        {label:'Opening Balance', style:'normal',
+                                                         data:periods.map(p=>fin.equityOpening[p]||0)},
+                                                        {label:'(+) Equity Contributions', style:'addition',
+                                                         data:periods.map(p=>fin.equityAdditions[p]||0)},
+                                                        {label:'Closing Balance', style:'total',
+                                                         data:periods.map(p=>fin.equityClosing[p]||0)},
+                                                    ]
+                                                });
+                                            }
+
+                                            // ── FINANCE COST SCHEDULE VIEW ──
+                                            if(activeFinView==='interest'){
+                                                const periodicRate=fin.periodicRate;
+                                                return PeriodTable({
+                                                    title:`${activeFinAsset.charAt(0).toUpperCase()+activeFinAsset.slice(1)} — Finance Cost Schedule`,
+                                                    badge:`Total Finance Cost: ${currency} ${formatNumber(fin.totalInterest)}`,
+                                                    badgeColor:'#d97706', badgeBg:'#fef3c7',
+                                                    note:`📐 Rate: ${interestRate}% p.a. → ${(periodicRate*100).toFixed(4)}% per ${modelType==='monthly'?'month':'year'} | Calculated on Opening Debt Balance each period`,
+                                                    rows:[
+                                                        {label:'Opening Debt Balance', style:'normal',
+                                                         data:periods.map(p=>fin.debtOpening[p]||0)},
+                                                        {label:`Periodic Rate (${(periodicRate*100).toFixed(4)}%)`, style:'normal',
+                                                         data:periods.map(()=>0)},
+                                                        {label:'Finance Cost (Interest)', style:'subtotal',
+                                                         data:periods.map(p=>fin.interestCharge[p]||0)},
+                                                        {label:capitalizeInterest?'Treatment: Capitalized into Debt':'Treatment: Expensed Separately', style:'normal',
+                                                         data:periods.map(()=>0)},
+                                                        {label:'Cumulative Finance Cost', style:'total',
+                                                         data:periods.map((p,i,arr)=>fin.interestCharge.slice(0,p+1).reduce((a,b)=>a+b,0))},
+                                                    ]
+                                                });
+                                            }
+
+                                            return null;
+                                        })()}
                                     </div>
                                 )}
                                 {activeTab === 'financing_disabled' && (
