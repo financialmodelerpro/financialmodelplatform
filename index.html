@@ -1998,19 +1998,19 @@
                                     };
 
                                     // ── Reusable summary table renderer ───────────────────────
-                                    const SummaryTable = ({ title, subtitle, color, rows, totals, badge }) => (
+                                    const SummaryTable = ({ title, subtitle, rows, totals, totalLabel }) => (
                                         <div className="module-card p-6">
                                             <div className="flex items-center gap-3 mb-4">
                                                 <div>
                                                     <h3 className="text-xl font-bold text-gray-800">{title}</h3>
                                                     <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
                                                 </div>
-                                                <span className={`ml-auto text-xs font-bold px-3 py-1 rounded-full ${badge}`}>{currency}</span>
+                                                <span className="ml-auto text-xs font-bold px-3 py-1 rounded-full bg-blue-100 text-blue-800">{currency}</span>
                                             </div>
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-sm" style={{minWidth: Math.max(700, (bucketCount + 2) * 110) + 'px'}}>
                                                     <thead>
-                                                        <tr style={{background: color}} className="text-white">
+                                                        <tr style={{background: '#1e3a5f'}} className="text-white">
                                                             <th className="p-3 text-left" style={{minWidth:'140px'}}>Asset</th>
                                                             <th className="p-3 text-right" style={{minWidth:'110px'}}>Total</th>
                                                             {colLabels.map((lbl, i) => (
@@ -2019,8 +2019,8 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {rows.map(({ label, buckets, rowColor }, ri) => buckets && (
-                                                            <tr key={ri} className={rowColor || (ri % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
+                                                        {rows.map(({ label, buckets }, ri) => buckets && (
+                                                            <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                                                 <td className="p-3 font-semibold text-gray-700">{label}</td>
                                                                 <td className="p-3 text-right font-bold text-gray-900">{fmtCell(rowTotal(buckets))}</td>
                                                                 {buckets.map((v, ci) => (
@@ -2028,9 +2028,9 @@
                                                                 ))}
                                                             </tr>
                                                         ))}
-                                                        {/* Total row */}
+                                                        {/* Total row — same color for both tables */}
                                                         <tr className="text-white font-bold" style={{background: '#1e3a5f'}}>
-                                                            <td className="p-3">Total Capex</td>
+                                                            <td className="p-3">{totalLabel}</td>
                                                             <td className="p-3 text-right">{fmtCell(totals.reduce((a,b)=>a+b,0))}</td>
                                                             {totals.map((v, ci) => (
                                                                 <td key={ci} className="p-3 text-right">{fmtCell(v)}</td>
@@ -2047,8 +2047,7 @@
                                             <SummaryTable
                                                 title="CAPEX Summary — Excl. Land In-Kind"
                                                 subtitle="All development costs including only the cash portion of land acquisition"
-                                                color="#1e3a5f"
-                                                badge="bg-blue-100 text-blue-800"
+                                                totalLabel="Total Capex Excl. In-Kind"
                                                 rows={[
                                                     { label: 'Residential', buckets: resBuckets  },
                                                     { label: 'Hospitality', buckets: hospBuckets },
@@ -2059,8 +2058,7 @@
                                             <SummaryTable
                                                 title="CAPEX Summary — Incl. Land In-Kind"
                                                 subtitle="Full development costs including both cash and in-kind land (used for Cost of Sales calculation)"
-                                                color="#3d1a6e"
-                                                badge="bg-purple-100 text-purple-800"
+                                                totalLabel="Total Capex Incl. In-Kind"
                                                 rows={[
                                                     { label: 'Residential', buckets: resBucketsIK  },
                                                     { label: 'Hospitality', buckets: hospBucketsIK },
