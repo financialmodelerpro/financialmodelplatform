@@ -2090,6 +2090,217 @@
                                     );
                                 })()}
 
+                                {/* ============================================================ */}
+                                {/* COMBINED LINE-ITEM COST SUMMARY — ALL ASSETS                */}
+                                {/* Placed right after Excl/Incl In-Kind CAPEX summary tables   */}
+                                {/* ============================================================ */}
+                                {(() => {
+                                    const numPeriods = constructionPeriods + 1;
+                                    const pLabel = (i) => modelType === 'monthly' ? `Month ${i}` : `Year ${i}`;
+                                    const fmtN = (v) => (!v || v === 0) ? '—' : Math.round(v).toLocaleString('en-US');
+
+                                    const ASSET_COLOR = { residential: '#2563eb', hospitality: '#059669', retail: '#7c3aed' };
+                                    const ASSET_BG    = { residential: '#eff6ff', hospitality: '#f0fdf4', retail: '#faf5ff' };
+                                    const ASSET_LABEL = { residential: 'Residential', hospitality: 'Hospitality', retail: 'Retail' };
+
+                                    const visibleAssets = [
+                                        ...(showResidential ? ['residential'] : []),
+                                        ...(showHospitality ? ['hospitality'] : []),
+                                        'retail'
+                                    ];
+
+                                    const costsMap = {
+                                        residential: residentialCosts,
+                                        hospitality: hospitalityCosts,
+                                        retail: retailCosts
+                                    };
+
+                                    // Build ordered unique cost item names across all visible assets
+                                    const seenNames = new Set();
+                                    const orderedNames = [];
+                                    visibleAssets.forEach(asset => {
+                                        costsMap[asset].forEach(c => {
+                                            if (!seenNames.has(c.name)) {
+                                                seenNames.add(c.name);
+                                                orderedNames.push(c.name);
+                                            }
+                                        });
+                                    });
+
+                                    // Per cost name + asset → period distribution slice
+                                    const getAssetLineDist = (name, asset) => {
+                                        const cost = costsMap[asset].find(c => c.name === name);
+                                        if (!cost) return null;
+                                        const d = distributeCost(cost, asset);
+                                        return d.slice(0, numPeriods);
+                                    };
+
+                                    // Grand total per period across ALL assets ALL lines
+                                    const grandTotalDist = Array(numPeriods).fill(0);
+                                    visibleAssets.forEach(asset => {
+                                        costsMap[asset].forEach(cost => {
+                                            const d = distributeCost(cost, asset);
+                                            d.forEach((v, i) => { if (i < numPeriods) grandTotalDist[i] += v; });
+                                        });
+                                    });
+                                    const grandTotal = grandTotalDist.reduce((a, b) => a + b, 0);
+
+                                    return (
+                                        <div className="module-card p-6">
+                                            {/* Header */}
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div>
+                                                    <h3 className="text-xl font-bold text-gray-800">
+                                                        📋 Combined Cost Summary — All Assets by Line Item
+                                                    </h3>
+                                                    <p className="text-sm text-gray-500 mt-1">
+                                                        Every cost line item aggregated across all assets, period by period
+                                                    </p>
+                                                </div>
+                                                <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-100 text-indigo-800">
+                                                    {currency}
+                                                </span>
+                                            </div>
+
+                                            {/* Legend */}
+                                            <div className="flex flex-wrap gap-3 mb-4">
+                                                <span className="text-xs font-semibold px-3 py-1 rounded-full"
+                                                    style={{background:'#e0e7ff', color:'#1e40af', border:'1px solid #6366f1'}}>
+                                                    ■ Combined Total
+                                                </span>
+                                                {visibleAssets.map(a => (
+                                                    <span key={a} className="text-xs font-semibold px-3 py-1 rounded-full"
+                                                        style={{background: ASSET_BG[a], color: ASSET_COLOR[a],
+                                                                border: `1px solid ${ASSET_COLOR[a]}`}}>
+                                                        ↳ {ASSET_LABEL[a]}
+                                                    </span>
+                                                ))}
+                                            </div>
+
+                                            <div className="overflow-x-auto">
+                                                <table style={{borderCollapse:'collapse', fontSize:'0.8rem', width:'100%',
+                                                    minWidth: Math.max(700, (numPeriods + 2) * 95) + 'px'}}>
+                                                    <thead>
+                                                        <tr style={{background:'#1e3a5f', color:'white'}}>
+                                                            <th style={{padding:'10px 14px', textAlign:'left', minWidth:'220px',
+                                                                position:'sticky', left:0, background:'#1e3a5f', zIndex:2,
+                                                                borderRight:'2px solid #374151'}}>
+                                                                Cost Item / Asset
+                                                            </th>
+                                                            <th style={{padding:'10px 10px', textAlign:'right', minWidth:'110px',
+                                                                background:'#111827', borderRight:'2px solid #4b5563'}}>
+                                                                Total
+                                                            </th>
+                                                            {Array.from({length: numPeriods}, (_, i) => (
+                                                                <th key={i} style={{padding:'10px 8px', textAlign:'right',
+                                                                    minWidth:'88px', borderLeft:'1px solid #374151'}}>
+                                                                    {pLabel(i)}
+                                                                </th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {orderedNames.map((name, ni) => {
+                                                            const subRows = visibleAssets
+                                                                .map(asset => {
+                                                                    const dist = getAssetLineDist(name, asset);
+                                                                    if (!dist) return null;
+                                                                    const total = dist.reduce((a, b) => a + b, 0);
+                                                                    if (total === 0) return null;
+                                                                    return { asset, dist, total };
+                                                                })
+                                                                .filter(Boolean);
+
+                                                            if (subRows.length === 0) return null;
+
+                                                            const combinedDist = Array(numPeriods).fill(0);
+                                                            subRows.forEach(r => r.dist.forEach((v, i) => { combinedDist[i] += v; }));
+                                                            const combinedTotal = combinedDist.reduce((a, b) => a + b, 0);
+
+                                                            return (
+                                                                <React.Fragment key={name}>
+                                                                    {/* Blue combined total row */}
+                                                                    <tr style={{background:'#e0e7ff',
+                                                                        borderTop: ni === 0 ? '2px solid #6366f1' : '2px solid #a5b4fc'}}>
+                                                                        <td style={{padding:'9px 14px', fontWeight:700,
+                                                                            color:'#1e40af', fontSize:'0.82rem',
+                                                                            position:'sticky', left:0, background:'#e0e7ff',
+                                                                            zIndex:1, borderRight:'2px solid #c7d2fe'}}>
+                                                                            {name}
+                                                                        </td>
+                                                                        <td style={{padding:'9px 10px', textAlign:'right',
+                                                                            fontWeight:700, color:'#1e40af',
+                                                                            borderRight:'2px solid #c7d2fe'}}>
+                                                                            {fmtN(combinedTotal)}
+                                                                        </td>
+                                                                        {combinedDist.map((v, i) => (
+                                                                            <td key={i} style={{padding:'9px 8px',
+                                                                                textAlign:'right', fontWeight:700,
+                                                                                color:'#1e40af', borderLeft:'1px solid #c7d2fe'}}>
+                                                                                {v > 0 ? fmtN(v) : '—'}
+                                                                            </td>
+                                                                        ))}
+                                                                    </tr>
+                                                                    {/* Indented sub-rows per asset */}
+                                                                    {subRows.map(({ asset, dist, total }) => (
+                                                                        <tr key={asset} style={{background: ASSET_BG[asset]}}>
+                                                                            <td style={{padding:'5px 14px 5px 28px',
+                                                                                fontWeight:500, fontSize:'0.75rem',
+                                                                                color: ASSET_COLOR[asset],
+                                                                                position:'sticky', left:0,
+                                                                                background: ASSET_BG[asset], zIndex:1,
+                                                                                borderRight:'2px solid #e5e7eb'}}>
+                                                                                ↳ {ASSET_LABEL[asset]}
+                                                                            </td>
+                                                                            <td style={{padding:'5px 10px', textAlign:'right',
+                                                                                fontWeight:600, fontSize:'0.75rem',
+                                                                                color: ASSET_COLOR[asset],
+                                                                                borderRight:'2px solid #e5e7eb'}}>
+                                                                                {fmtN(total)}
+                                                                            </td>
+                                                                            {dist.map((v, i) => (
+                                                                                <td key={i} style={{padding:'5px 8px',
+                                                                                    textAlign:'right', fontSize:'0.75rem',
+                                                                                    color: ASSET_COLOR[asset],
+                                                                                    borderLeft:'1px solid #e5e7eb'}}>
+                                                                                    {v > 0 ? fmtN(v) : '—'}
+                                                                                </td>
+                                                                            ))}
+                                                                        </tr>
+                                                                    ))}
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
+
+                                                        {/* Grand Total Row */}
+                                                        <tr style={{background:'#1e3a5f', color:'white',
+                                                            borderTop:'3px solid #f59e0b'}}>
+                                                            <td style={{padding:'11px 14px', fontWeight:700,
+                                                                fontSize:'0.85rem', position:'sticky', left:0,
+                                                                background:'#1e3a5f', color:'white', zIndex:1,
+                                                                borderRight:'2px solid #374151'}}>
+                                                                GRAND TOTAL
+                                                            </td>
+                                                            <td style={{padding:'11px 10px', textAlign:'right',
+                                                                fontWeight:700, fontSize:'0.85rem',
+                                                                borderRight:'2px solid #374151'}}>
+                                                                {fmtN(grandTotal)}
+                                                            </td>
+                                                            {grandTotalDist.map((v, i) => (
+                                                                <td key={i} style={{padding:'11px 8px',
+                                                                    textAlign:'right', fontWeight:700,
+                                                                    borderLeft:'1px solid #374151'}}>
+                                                                    {v > 0 ? fmtN(v) : '—'}
+                                                                </td>
+                                                            ))}
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
                                 {/* RESIDENTIAL DEVELOPMENT COSTS */}
                                 {showResidential && (
                                     <div className="module-card p-6">
@@ -2916,7 +3127,9 @@
                                             </table>
                                         </div>
                                     </div>
-                                )}                                </div>
+                                )}
+
+                                </div>
                             )}
 
 
