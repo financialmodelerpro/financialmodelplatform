@@ -1927,47 +1927,18 @@
                                 {/* CAPEX SUMMARY — TOP OF COSTS TAB                            */}
                                 {/* ============================================================ */}
                                 {(() => {
-                                    // ── Period labels ──────────────────────────────────────────
-                                    const periodLabel = (i) =>
-                                        modelType === 'annual'
-                                            ? `Year ${i}`
-                                            : `M${i}`;
-
-                                    // Aggregate all periods 0..constructionPeriods into year-buckets
-                                    // For monthly model we group by year (12 months = 1 year bucket)
-                                    // For annual model each period is already a year
+                                    // ── Mirror exactly the per-asset CAPEX tables ─────────────
+                                    // Each column = one period (month or year), period 0..constructionPeriods
                                     const numPeriods = constructionPeriods + 1; // periods 0..constructionPeriods
+                                    const bucketCount = numPeriods;
 
-                                    let colLabels = [];
-                                    let bucketCount = 0;
-                                    if (modelType === 'annual') {
-                                        bucketCount = numPeriods;
-                                        colLabels = Array.from({length: numPeriods}, (_, i) => `Year ${i}`);
-                                    } else {
-                                        // Group monthly periods into yearly buckets
-                                        // Period 0 is always its own bucket (pre-construction / land)
-                                        // Periods 1..constructionPeriods grouped by year
-                                        const yearCount = Math.ceil(constructionPeriods / 12);
-                                        bucketCount = yearCount + 1; // +1 for period-0 bucket
-                                        colLabels = ['Period 0', ...Array.from({length: yearCount}, (_, i) => `Year ${i + 1}`)];
-                                    }
+                                    // Column labels: same as per-asset tables ("Month 0", "Month 1" or "Year 0", "Year 1")
+                                    const colLabels = Array.from({length: numPeriods}, (_, i) =>
+                                        modelType === 'monthly' ? `Month ${i}` : `Year ${i}`
+                                    );
 
-                                    // Bucket a distribution array into year buckets
-                                    const toBuckets = (dist) => {
-                                        if (modelType === 'annual') return dist.slice(0, numPeriods);
-                                        // monthly → year buckets
-                                        const buckets = [dist[0]]; // period 0
-                                        const yearCount = Math.ceil(constructionPeriods / 12);
-                                        for (let y = 0; y < yearCount; y++) {
-                                            let sum = 0;
-                                            for (let m = 1; m <= 12; m++) {
-                                                const p = y * 12 + m;
-                                                if (p < dist.length) sum += dist[p];
-                                            }
-                                            buckets.push(sum);
-                                        }
-                                        return buckets;
-                                    };
+                                    // No bucketing needed — one column per period directly
+                                    const toBuckets = (dist) => dist.slice(0, numPeriods);
 
                                     // ── In-Kind land value per asset ──────────────────────────
                                     const residentialInKind = residentialTotalArea * landValuePerSqm * (inKindPercent / 100);
