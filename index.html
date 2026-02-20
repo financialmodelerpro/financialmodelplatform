@@ -149,6 +149,13 @@
         .total-row td:first-child {
             background: #dbeafe;
         }
+        .capex-total-cell {
+            background-color: #1e3a5f !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            position: static !important;
+            z-index: auto !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -2028,14 +2035,16 @@
                                                                 ))}
                                                             </tr>
                                                         ))}
-                                                        {/* Total row — same color for both tables */}
-                                                        <tr style={{background: '#1e3a5f', color: '#ffffff'}}>
-                                                            <td className="p-3 font-bold" style={{color:'#ffffff'}}>{totalLabel}</td>
-                                                            <td className="p-3 text-right font-bold" style={{color:'#ffffff'}}>
+                                                        {/* Total row — inline !important overrides to beat global td CSS */}
+                                                        <tr>
+                                                            <td className="p-3 capex-total-cell" style={{backgroundColor:'#1e3a5f', color:'#ffffff', fontWeight:'700', position:'static'}}>
+                                                                {totalLabel}
+                                                            </td>
+                                                            <td className="p-3 text-right capex-total-cell" style={{backgroundColor:'#1e3a5f', color:'#ffffff', fontWeight:'700'}}>
                                                                 {Math.round(totals.reduce((a,b)=>a+b,0)).toLocaleString('en-US')}
                                                             </td>
                                                             {totals.map((v, ci) => (
-                                                                <td key={ci} className="p-3 text-right font-bold" style={{color:'#ffffff'}}>
+                                                                <td key={ci} className="p-3 text-right capex-total-cell" style={{backgroundColor:'#1e3a5f', color:'#ffffff', fontWeight:'700'}}>
                                                                     {v > 0 ? Math.round(v).toLocaleString('en-US') : '—'}
                                                                 </td>
                                                             ))}
@@ -2118,7 +2127,7 @@
                                                                 <input type="text" value={cost.name}
                                                                     onChange={e => updateResidentialCost(cost.id, 'name', e.target.value)}
                                                                     disabled={isLand}
-                                                                    className={`w-full px-2 py-1 border rounded text-xs ${isLand ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-yellow-300'}`}
+                                                                    className={`w-full px-2 py-1 border rounded text-xs ${isLand ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'input-assumption'}`}
                                                                 />
                                                             </td>
 
@@ -2130,7 +2139,7 @@
                                                                     <div>
                                                                         <select value={cost.method}
                                                                             onChange={e => updateResidentialCost(cost.id, 'method', e.target.value)}
-                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1">
+                                                                            className="input-assumption w-full px-2 py-1 rounded text-xs mb-1">
                                                                             <optgroup label="── Fixed ──">
                                                                                 <option value="fixed">Fixed Amount</option>
                                                                             </optgroup>
@@ -2175,8 +2184,8 @@
                                                             {/* Area / Base Value */}
                                                             <td className="p-2 border-b border-gray-200 text-right text-xs">
                                                                 {isLand && <span className="text-gray-400 italic">—</span>}
-                                                                {isRate && <span className="font-semibold text-blue-700">{formatInput(areaVal)} sqm</span>}
-                                                                {isPct  && <span className="font-semibold text-purple-700">{formatNumber(baseVal)}</span>}
+                                                                {isRate && <span className="font-semibold text-green-700">{formatInput(areaVal)} sqm</span>}
+                                                                {isPct  && <span className="font-semibold text-green-700">{formatNumber(baseVal)}</span>}
                                                                 {cost.method === 'percent_total_land'  && <span className="font-semibold text-green-700">{formatNumber(a.landValue)}</span>}
                                                                 {cost.method === 'percent_cash_land'   && <span className="font-semibold text-green-700">{formatNumber(a.cashLandValue)}</span>}
                                                                 {cost.method === 'percent_inkind_land' && <span className="font-semibold text-green-700">{formatNumber(a.inKindLandValue)}</span>}
@@ -2192,7 +2201,7 @@
                                                                         {isPct || cost.method.startsWith('percent_') ? <span className="text-gray-500 text-xs">%</span> : isRate ? <span className="text-gray-500 text-xs">$/sqm</span> : null}
                                                                         <input type="number" value={cost.value}
                                                                             onChange={e => updateResidentialCost(cost.id, 'value', parseFloat(e.target.value)||0)}
-                                                                            className="w-20 px-2 py-1 border border-yellow-300 rounded text-xs text-right"
+                                                                            className="input-assumption w-20 px-2 py-1 rounded text-xs text-right"
                                                                         />
                                                                     </div>
                                                                 )}
@@ -2208,7 +2217,7 @@
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.startPeriod} min="0" max={constructionPeriods}
                                                                         onChange={e => updateResidentialCost(cost.id, 'startPeriod', parseInt(e.target.value)||0)}
-                                                                        className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
+                                                                        className="input-assumption w-14 px-1 py-0.5 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
 
@@ -2217,7 +2226,7 @@
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.endPeriod} min="0" max={constructionPeriods}
                                                                         onChange={e => updateResidentialCost(cost.id, 'endPeriod', parseInt(e.target.value)||0)}
-                                                                        className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
+                                                                        className="input-assumption w-14 px-1 py-0.5 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
 
@@ -2238,7 +2247,7 @@
                                                                                     updateResidentialCost(cost.id, 'phasing', {type:'manual', values: Array(cnt).fill(0)});
                                                                                 }
                                                                             }}
-                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1"
+                                                                            className="input-assumption w-full px-2 py-1 rounded text-xs mb-1"
                                                                         >
                                                                             <option value="even">Even Distribution</option>
                                                                             <option value="manual">Manual Allocation %</option>
@@ -2276,7 +2285,7 @@
                                                                                                                 const nv=[...filledVals]; nv[i]=parseFloat(e.target.value)||0;
                                                                                                                 updateResidentialCost(cost.id,'phasing',{type:'manual',values:nv});
                                                                                                             }}
-                                                                                                            className={`w-12 px-1 py-0.5 border rounded text-center ${!validation.valid?'border-red-400 bg-red-50':'border-yellow-300'}`}
+                                                                                                            className={`w-12 px-1 py-0.5 border rounded text-center ${!validation.valid?'border-red-400 bg-red-50':'input-assumption'}`}
                                                                                                         />
                                                                                                     </td>
                                                                                                 ))}
@@ -2397,7 +2406,7 @@
                                                                 <input type="text" value={cost.name}
                                                                     onChange={e => updateHospitalityCost(cost.id, 'name', e.target.value)}
                                                                     disabled={isLand}
-                                                                    className={`w-full px-2 py-1 border rounded text-xs ${isLand ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-yellow-300'}`}
+                                                                    className={`w-full px-2 py-1 border rounded text-xs ${isLand ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'input-assumption'}`}
                                                                 />
                                                             </td>
 
@@ -2409,7 +2418,7 @@
                                                                     <div>
                                                                         <select value={cost.method}
                                                                             onChange={e => updateHospitalityCost(cost.id, 'method', e.target.value)}
-                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1">
+                                                                            className="input-assumption w-full px-2 py-1 rounded text-xs mb-1">
                                                                             <optgroup label="── Fixed ──">
                                                                                 <option value="fixed">Fixed Amount</option>
                                                                             </optgroup>
@@ -2454,8 +2463,8 @@
                                                             {/* Area / Base Value */}
                                                             <td className="p-2 border-b border-gray-200 text-right text-xs">
                                                                 {isLand && <span className="text-gray-400 italic">—</span>}
-                                                                {isRate && <span className="font-semibold text-blue-700">{formatInput(areaVal)} sqm</span>}
-                                                                {isPct  && <span className="font-semibold text-purple-700">{formatNumber(baseVal)}</span>}
+                                                                {isRate && <span className="font-semibold text-green-700">{formatInput(areaVal)} sqm</span>}
+                                                                {isPct  && <span className="font-semibold text-green-700">{formatNumber(baseVal)}</span>}
                                                                 {cost.method === 'percent_total_land'  && <span className="font-semibold text-green-700">{formatNumber(a.landValue)}</span>}
                                                                 {cost.method === 'percent_cash_land'   && <span className="font-semibold text-green-700">{formatNumber(a.cashLandValue)}</span>}
                                                                 {cost.method === 'percent_inkind_land' && <span className="font-semibold text-green-700">{formatNumber(a.inKindLandValue)}</span>}
@@ -2471,7 +2480,7 @@
                                                                         {isPct || cost.method.startsWith('percent_') ? <span className="text-gray-500 text-xs">%</span> : isRate ? <span className="text-gray-500 text-xs">$/sqm</span> : null}
                                                                         <input type="number" value={cost.value}
                                                                             onChange={e => updateHospitalityCost(cost.id, 'value', parseFloat(e.target.value)||0)}
-                                                                            className="w-20 px-2 py-1 border border-yellow-300 rounded text-xs text-right"
+                                                                            className="input-assumption w-20 px-2 py-1 rounded text-xs text-right"
                                                                         />
                                                                     </div>
                                                                 )}
@@ -2487,7 +2496,7 @@
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.startPeriod} min="0" max={constructionPeriods}
                                                                         onChange={e => updateHospitalityCost(cost.id, 'startPeriod', parseInt(e.target.value)||0)}
-                                                                        className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
+                                                                        className="input-assumption w-14 px-1 py-0.5 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
 
@@ -2496,7 +2505,7 @@
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.endPeriod} min="0" max={constructionPeriods}
                                                                         onChange={e => updateHospitalityCost(cost.id, 'endPeriod', parseInt(e.target.value)||0)}
-                                                                        className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
+                                                                        className="input-assumption w-14 px-1 py-0.5 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
 
@@ -2517,7 +2526,7 @@
                                                                                     updateHospitalityCost(cost.id, 'phasing', {type:'manual', values: Array(cnt).fill(0)});
                                                                                 }
                                                                             }}
-                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1"
+                                                                            className="input-assumption w-full px-2 py-1 rounded text-xs mb-1"
                                                                         >
                                                                             <option value="even">Even Distribution</option>
                                                                             <option value="manual">Manual Allocation %</option>
@@ -2555,7 +2564,7 @@
                                                                                                                 const nv=[...filledVals]; nv[i]=parseFloat(e.target.value)||0;
                                                                                                                 updateHospitalityCost(cost.id,'phasing',{type:'manual',values:nv});
                                                                                                             }}
-                                                                                                            className={`w-12 px-1 py-0.5 border rounded text-center ${!validation.valid?'border-red-400 bg-red-50':'border-yellow-300'}`}
+                                                                                                            className={`w-12 px-1 py-0.5 border rounded text-center ${!validation.valid?'border-red-400 bg-red-50':'input-assumption'}`}
                                                                                                         />
                                                                                                     </td>
                                                                                                 ))}
@@ -2672,7 +2681,7 @@
                                                                 <input type="text" value={cost.name}
                                                                     onChange={e => updateRetailCost(cost.id, 'name', e.target.value)}
                                                                     disabled={isLand}
-                                                                    className={`w-full px-2 py-1 border rounded text-xs ${isLand ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'border-yellow-300'}`}
+                                                                    className={`w-full px-2 py-1 border rounded text-xs ${isLand ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'input-assumption'}`}
                                                                 />
                                                             </td>
 
@@ -2684,7 +2693,7 @@
                                                                     <div>
                                                                         <select value={cost.method}
                                                                             onChange={e => updateRetailCost(cost.id, 'method', e.target.value)}
-                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1">
+                                                                            className="input-assumption w-full px-2 py-1 rounded text-xs mb-1">
                                                                             <optgroup label="── Fixed ──">
                                                                                 <option value="fixed">Fixed Amount</option>
                                                                             </optgroup>
@@ -2729,8 +2738,8 @@
                                                             {/* Area / Base Value */}
                                                             <td className="p-2 border-b border-gray-200 text-right text-xs">
                                                                 {isLand && <span className="text-gray-400 italic">—</span>}
-                                                                {isRate && <span className="font-semibold text-blue-700">{formatInput(areaVal)} sqm</span>}
-                                                                {isPct  && <span className="font-semibold text-purple-700">{formatNumber(baseVal)}</span>}
+                                                                {isRate && <span className="font-semibold text-green-700">{formatInput(areaVal)} sqm</span>}
+                                                                {isPct  && <span className="font-semibold text-green-700">{formatNumber(baseVal)}</span>}
                                                                 {cost.method === 'percent_total_land'  && <span className="font-semibold text-green-700">{formatNumber(a.landValue)}</span>}
                                                                 {cost.method === 'percent_cash_land'   && <span className="font-semibold text-green-700">{formatNumber(a.cashLandValue)}</span>}
                                                                 {cost.method === 'percent_inkind_land' && <span className="font-semibold text-green-700">{formatNumber(a.inKindLandValue)}</span>}
@@ -2746,7 +2755,7 @@
                                                                         {isPct || cost.method.startsWith('percent_') ? <span className="text-gray-500 text-xs">%</span> : isRate ? <span className="text-gray-500 text-xs">$/sqm</span> : null}
                                                                         <input type="number" value={cost.value}
                                                                             onChange={e => updateRetailCost(cost.id, 'value', parseFloat(e.target.value)||0)}
-                                                                            className="w-20 px-2 py-1 border border-yellow-300 rounded text-xs text-right"
+                                                                            className="input-assumption w-20 px-2 py-1 rounded text-xs text-right"
                                                                         />
                                                                     </div>
                                                                 )}
@@ -2762,7 +2771,7 @@
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.startPeriod} min="0" max={constructionPeriods}
                                                                         onChange={e => updateRetailCost(cost.id, 'startPeriod', parseInt(e.target.value)||0)}
-                                                                        className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
+                                                                        className="input-assumption w-14 px-1 py-0.5 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
 
@@ -2771,7 +2780,7 @@
                                                                 {isLand ? <span className="text-xs text-gray-400">0</span> : (
                                                                     <input type="number" value={cost.endPeriod} min="0" max={constructionPeriods}
                                                                         onChange={e => updateRetailCost(cost.id, 'endPeriod', parseInt(e.target.value)||0)}
-                                                                        className="w-14 px-1 py-1 border border-yellow-300 rounded text-xs text-center"/>
+                                                                        className="input-assumption w-14 px-1 py-0.5 rounded text-xs text-center"/>
                                                                 )}
                                                             </td>
 
@@ -2792,7 +2801,7 @@
                                                                                     updateRetailCost(cost.id, 'phasing', {type:'manual', values: Array(cnt).fill(0)});
                                                                                 }
                                                                             }}
-                                                                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs mb-1"
+                                                                            className="input-assumption w-full px-2 py-1 rounded text-xs mb-1"
                                                                         >
                                                                             <option value="even">Even Distribution</option>
                                                                             <option value="manual">Manual Allocation %</option>
@@ -2830,7 +2839,7 @@
                                                                                                                 const nv=[...filledVals]; nv[i]=parseFloat(e.target.value)||0;
                                                                                                                 updateRetailCost(cost.id,'phasing',{type:'manual',values:nv});
                                                                                                             }}
-                                                                                                            className={`w-12 px-1 py-0.5 border rounded text-center ${!validation.valid?'border-red-400 bg-red-50':'border-yellow-300'}`}
+                                                                                                            className={`w-12 px-1 py-0.5 border rounded text-center ${!validation.valid?'border-red-400 bg-red-50':'input-assumption'}`}
                                                                                                         />
                                                                                                     </td>
                                                                                                 ))}
