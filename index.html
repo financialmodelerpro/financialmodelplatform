@@ -12,7 +12,7 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
         .tab-active { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            background: linear-gradient(135deg, #1B4F8A 0%, #2EAA4A 100%); 
             color: white; 
         }
         .module-card { 
@@ -26,23 +26,23 @@
             transform: translateY(-2px); 
         }
         .gradient-bg { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            background: linear-gradient(135deg, #1B4F8A 0%, #2EAA4A 100%); 
         }
         input[type="number"], input[type="text"], input[type="date"], select { 
             transition: all 0.2s; 
         }
         input:focus, select:focus { 
             outline: none; 
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: #1B4F8A;
+            box-shadow: 0 0 0 3px rgba(27, 79, 138, 0.15);
         }
         .btn-primary { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            background: linear-gradient(135deg, #1B4F8A 0%, #2EAA4A 100%); 
             transition: all 0.3s; 
         }
         .btn-primary:hover { 
             transform: translateY(-1px); 
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); 
+            box-shadow: 0 4px 12px rgba(27, 79, 138, 0.35); 
         }
         .table-container {
             overflow-x: auto;
@@ -56,12 +56,12 @@
         th {
             position: sticky;
             top: 0;
-            background: #1f2937;
+            background: #0D2E5A;
             color: white;
             font-weight: 600;
             padding: 0.75rem;
             text-align: center;
-            border: 1px solid #374151;
+            border: 1px solid #1A3F6F;
         }
         td {
             padding: 0.5rem;
@@ -77,7 +77,7 @@
             z-index: 1;
         }
         .total-row {
-            background: #e0e7ff;
+            background: #E8F0FB;
             font-weight: 700;
         }
         .sticky-nav {
@@ -90,13 +90,13 @@
         /* Yellow input styling for assumptions */
         .input-assumption {
             background-color: #fef3c7 !important;
-            color: #1e40af !important;
+            color: #1B4F8A !important;
             font-weight: 600;
             border: 1px solid #fbbf24 !important;
         }
         .editable-label {
             background-color: #fef3c7;
-            color: #1e40af;
+            color: #1B4F8A;
             font-weight: 600;
             border: 1px solid #fbbf24;
             padding: 0.25rem 0.5rem;
@@ -110,7 +110,7 @@
         .tooltip .tooltiptext {
             visibility: hidden;
             width: 300px;
-            background-color: #1f2937;
+            background-color: #0D2E5A;
             color: #fff;
             text-align: left;
             border-radius: 6px;
@@ -147,10 +147,10 @@
             margin-top: 0.25rem;
         }
         .total-row td:first-child {
-            background: #dbeafe;
+            background: #E8F0FB;
         }
         .capex-total-cell {
-            background-color: #1e3a5f !important;
+            background-color: #0D2E5A !important;
             color: #ffffff !important;
             font-weight: 700 !important;
             position: static !important;
@@ -318,6 +318,8 @@
             const [activeFinAsset, setActiveFinAsset]     = useState('residential');
             const [activeFinView,  setActiveFinView]      = useState('summary');
             const [lineRatios, setLineRatios]             = useState({});
+            const [repaymentPeriods, setRepaymentPeriods] = useState(5);   // years/months within ops
+            const [repaymentMethod, setRepaymentMethod]   = useState('fixed'); // 'fixed' | 'cashsweep'
             const getLineDebtPct = (name) =>
                 financingMode === 'fixed' ? globalDebtPct : (lineRatios[name] !== undefined ? lineRatios[name] : globalDebtPct);
             const setLineDebtPct = (name, val) =>
@@ -951,10 +953,19 @@
                 // Total debt drawn during construction
                 const totalDebtDrawn = debtAdd.reduce((a, b) => a + b, 0);
 
-                // Straight-line repayment over operations period
-                const repayPerPeriod = operationsPeriods > 0 ? totalDebtDrawn / operationsPeriods : 0;
+                // Repayment:
+                // Grace period = entire construction phase (no repayment)
+                // Fixed method: equal principal instalments over repaymentPeriods (capped to ops length)
+                // Cash Sweep: placeholder — will link to Return Analysis
                 const debtRep = Array(totalPeriods + 1).fill(0);
-                for (let p = constructionPeriods + 1; p <= totalPeriods; p++) debtRep[p] = repayPerPeriod;
+                if (repaymentMethod === 'fixed') {
+                    const effectiveRepPeriods = Math.min(repaymentPeriods, operationsPeriods);
+                    const repayPerPeriod = effectiveRepPeriods > 0 ? totalDebtDrawn / effectiveRepPeriods : 0;
+                    for (let p = constructionPeriods + 1; p <= constructionPeriods + effectiveRepPeriods; p++) {
+                        debtRep[p] = repayPerPeriod;
+                    }
+                }
+                // Cash Sweep: debtRep stays all zeros — placeholder for Return Analysis linkage
 
                 // Build running balances period by period
                 const debtOpen  = Array(totalPeriods + 1).fill(0);
@@ -1073,8 +1084,8 @@
                                         <div className="text-sm text-gray-600 mt-1">Value: ${formatNumber(totalLandValue)}</div>
                                     </div>
                                     
-                                    <div className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
-                                        <div className="text-sm text-purple-600 font-medium mb-2">Project Duration</div>
+                                    <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                                        <div className="text-sm text-blue-700 font-medium mb-2">Project Duration</div>
                                         <div className="text-2xl font-bold text-gray-800">
                                             {constructionPeriods + operationsPeriods} {modelType === 'monthly' ? 'Months' : 'Years'}
                                         </div>
@@ -1110,9 +1121,9 @@
                                                 <span className="text-gray-700">Hospitality ({hospitalityPercent}%)</span>
                                                 <span className="font-bold text-green-700">{formatNumber(hospitalityTotalArea)} sqm</span>
                                             </div>
-                                            <div className="flex justify-between p-3 bg-purple-50 rounded">
+                                            <div className="flex justify-between p-3 bg-blue-50 rounded">
                                                 <span className="text-gray-700">Retail ({retailPercent}%)</span>
-                                                <span className="font-bold text-purple-700">{formatNumber(retailTotalArea)} sqm</span>
+                                                <span className="font-bold text-blue-800">{formatNumber(retailTotalArea)} sqm</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1123,7 +1134,7 @@
                             <h2 className="text-2xl font-bold mb-4 text-gray-800">Financial Modeling Modules</h2>
                             <div className="grid grid-cols-3 gap-6">
                                 {/* Module 1 - Active */}
-                                <div className="module-card p-6 cursor-pointer border-2 border-purple-500" onClick={() => {
+                                <div className="module-card p-6 cursor-pointer border-2 border-teal-600" onClick={() => {
                                     setActiveModule('module1');
                                     setActiveTab('timeline');
                                 }}>
@@ -1244,7 +1255,7 @@
                                 <button
                                     onClick={() => setActiveTab('timeline')}
                                     className={`px-4 py-2 rounded font-medium transition ${
-                                        activeTab === 'timeline' ? 'bg-purple-600 text-white' : 'hover:bg-gray-100'
+                                        activeTab === 'timeline' ? 'bg-blue-800 text-white' : 'hover:bg-gray-100'
                                     }`}
                                 >
                                     Project Details & Timeline
@@ -1252,7 +1263,7 @@
                                 <button
                                     onClick={() => setActiveTab('area')}
                                     className={`px-4 py-2 rounded font-medium transition ${
-                                        activeTab === 'area' ? 'bg-purple-600 text-white' : 'hover:bg-gray-100'
+                                        activeTab === 'area' ? 'bg-blue-800 text-white' : 'hover:bg-gray-100'
                                     }`}
                                 >
                                     Land & Area
@@ -1260,7 +1271,7 @@
                                 <button
                                     onClick={() => setActiveTab('costs')}
                                     className={`px-4 py-2 rounded font-medium transition ${
-                                        activeTab === 'costs' ? 'bg-purple-600 text-white' : 'hover:bg-gray-100'
+                                        activeTab === 'costs' ? 'bg-blue-800 text-white' : 'hover:bg-gray-100'
                                     }`}
                                 >
                                     Development Costs
@@ -1268,7 +1279,7 @@
                                 <button
                                     onClick={() => setActiveTab('financing')}
                                     className={`px-4 py-2 rounded font-medium transition ${
-                                        activeTab === 'financing' ? 'bg-purple-600 text-white' : 'hover:bg-gray-100'
+                                        activeTab === 'financing' ? 'bg-blue-800 text-white' : 'hover:bg-gray-100'
                                     }`}
                                 >
                                     Financing
@@ -1375,12 +1386,12 @@
                                         </div>
 
                                         {/* Results Display */}
-                                        <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-lg border border-purple-200">
+                                        <div className="bg-gradient-to-r from-blue-50 to-blue-50 p-6 rounded-lg border border-blue-200">
                                             <h4 className="font-bold text-gray-800 mb-4">Project Timeline Summary</h4>
                                             <div className="grid grid-cols-3 gap-6">
                                                 <div>
                                                     <div className="text-sm text-gray-600 mb-1">Total Project Duration</div>
-                                                    <div className="text-2xl font-bold text-purple-700">
+                                                    <div className="text-2xl font-bold text-blue-800">
                                                         {constructionPeriods + operationsPeriods} {modelType === 'monthly' ? 'Months' : 'Years'}
                                                     </div>
                                                     <div className="text-xs text-gray-500 mt-1">
@@ -1719,7 +1730,7 @@
                                                     <div className="mt-3">
                                                         <button 
                                                             onClick={() => addCustomRow('residential')}
-                                                            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-semibold"
+                                                            className="bg-blue-800 hover:bg-blue-900 text-white px-4 py-2 rounded text-sm font-semibold"
                                                         >
                                                             + Add Row
                                                         </button>
@@ -1885,7 +1896,7 @@
                                                     <div className="mt-3">
                                                         <button 
                                                             onClick={() => addCustomRow('hospitality')}
-                                                            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm font-semibold"
+                                                            className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded text-sm font-semibold"
                                                         >
                                                             + Add Row
                                                         </button>
@@ -1910,7 +1921,7 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        <tr className="bg-purple-50">
+                                                        <tr className="bg-blue-50">
                                                             <td className="p-2 border font-medium">Total Allocated Area</td>
                                                             <td className="p-2 border text-center">-</td>
                                                             <td className="p-2 border text-center">-</td>
@@ -1935,7 +1946,7 @@
                                                             <td className="p-2 border">{formatNumber(retailTotalArea)} sqm × {retailRoadsPercent}%</td>
                                                             <td className="p-2 border text-center">-</td>
                                                         </tr>
-                                                        <tr className="bg-purple-100">
+                                                        <tr className="bg-blue-100">
                                                             <td className="p-2 border font-bold">Net Developable Area</td>
                                                             <td className="p-2 border text-center">-</td>
                                                             <td className="p-2 border text-center">-</td>
@@ -1969,7 +1980,7 @@
                                                             <td className="p-2 border">{getBaseAreaName(retailGFABase)} × {retailFAR}</td>
                                                             <td className="p-2 border text-center">-</td>
                                                         </tr>
-                                                        <tr className="bg-purple-100">
+                                                        <tr className="bg-blue-100">
                                                             <td className="p-2 border font-bold">BUA (Built-Up Area)</td>
                                                             <td className="p-2 border text-center">
                                                                 Eff: <input
@@ -2050,7 +2061,7 @@
                                                 <div className="mt-3">
                                                     <button 
                                                         onClick={() => addCustomRow('retail')}
-                                                        className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded text-sm font-semibold"
+                                                        className="bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded text-sm font-semibold"
                                                     >
                                                         + Add Row
                                                     </button>
@@ -2147,12 +2158,12 @@
                                                     <h3 className="text-xl font-bold text-gray-800">{title}</h3>
                                                     <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
                                                 </div>
-                                                <span className="ml-auto text-xs font-bold px-3 py-1 rounded-full bg-blue-100 text-blue-800">{currency}</span>
+                                                <span className="ml-auto text-xs font-bold px-3 py-1 rounded-full bg-blue-100 text-blue-900">{currency}</span>
                                             </div>
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-sm" style={{minWidth: Math.max(700, (bucketCount + 2) * 110) + 'px'}}>
                                                     <thead>
-                                                        <tr style={{background: '#1e3a5f'}} className="text-white">
+                                                        <tr style={{background: '#0D2E5A'}} className="text-white">
                                                             <th className="p-3 text-left" style={{minWidth:'140px'}}>Asset</th>
                                                             <th className="p-3 text-right" style={{minWidth:'110px'}}>Total</th>
                                                             {colLabels.map((lbl, i) => (
@@ -2172,14 +2183,14 @@
                                                         ))}
                                                         {/* Total row — inline !important overrides to beat global td CSS */}
                                                         <tr>
-                                                            <td className="p-3 capex-total-cell" style={{backgroundColor:'#1e3a5f', color:'#ffffff', fontWeight:'700', position:'static'}}>
+                                                            <td className="p-3 capex-total-cell" style={{backgroundColor:'#0D2E5A', color:'#ffffff', fontWeight:'700', position:'static'}}>
                                                                 {totalLabel}
                                                             </td>
-                                                            <td className="p-3 text-right capex-total-cell" style={{backgroundColor:'#1e3a5f', color:'#ffffff', fontWeight:'700'}}>
+                                                            <td className="p-3 text-right capex-total-cell" style={{backgroundColor:'#0D2E5A', color:'#ffffff', fontWeight:'700'}}>
                                                                 {Math.round(totals.reduce((a,b)=>a+b,0)).toLocaleString('en-US')}
                                                             </td>
                                                             {totals.map((v, ci) => (
-                                                                <td key={ci} className="p-3 text-right capex-total-cell" style={{backgroundColor:'#1e3a5f', color:'#ffffff', fontWeight:'700'}}>
+                                                                <td key={ci} className="p-3 text-right capex-total-cell" style={{backgroundColor:'#0D2E5A', color:'#ffffff', fontWeight:'700'}}>
                                                                     {v > 0 ? Math.round(v).toLocaleString('en-US') : '—'}
                                                                 </td>
                                                             ))}
@@ -2227,8 +2238,8 @@
                                     const pLabel = (i) => modelType === 'monthly' ? `Month ${i}` : `Year ${i}`;
                                     const fmtN = (v) => (!v || v === 0) ? '—' : Math.round(v).toLocaleString('en-US');
 
-                                    const ASSET_COLOR = { residential: '#2563eb', hospitality: '#059669', retail: '#7c3aed' };
-                                    const ASSET_BG    = { residential: '#eff6ff', hospitality: '#f0fdf4', retail: '#faf5ff' };
+                                    const ASSET_COLOR = { residential: '#1B4F8A', hospitality: '#2EAA4A', retail: '#6B7280' };
+                                    const ASSET_BG    = { residential: '#E8F0FB', hospitality: '#E8F7EC', retail: '#F5F7FA' };
                                     const ASSET_LABEL = { residential: 'Residential', hospitality: 'Hospitality', retail: 'Retail' };
 
                                     const visibleAssets = [
@@ -2285,7 +2296,7 @@
                                                         Every cost line item aggregated across all assets, period by period
                                                     </p>
                                                 </div>
-                                                <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-100 text-indigo-800">
+                                                <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-100 text-blue-800">
                                                     {currency}
                                                 </span>
                                             </div>
@@ -2293,7 +2304,7 @@
                                             {/* Legend */}
                                             <div className="flex flex-wrap gap-3 mb-4">
                                                 <span className="text-xs font-semibold px-3 py-1 rounded-full"
-                                                    style={{background:'#e0e7ff', color:'#1e40af', border:'1px solid #6366f1'}}>
+                                                    style={{background:'#E8F0FB', color:'#1B4F8A', border:'1px solid #1B4F8A'}}>
                                                     ■ Combined Total
                                                 </span>
                                                 {visibleAssets.map(a => (
@@ -2309,14 +2320,14 @@
                                                 <table style={{borderCollapse:'collapse', fontSize:'0.8rem', width:'100%',
                                                     minWidth: Math.max(700, (numPeriods + 2) * 95) + 'px'}}>
                                                     <thead>
-                                                        <tr style={{background:'#1e3a5f', color:'white'}}>
+                                                        <tr style={{background:'#0D2E5A', color:'white'}}>
                                                             <th style={{padding:'10px 14px', textAlign:'left', minWidth:'220px',
-                                                                position:'sticky', left:0, background:'#1e3a5f', zIndex:2,
+                                                                position:'sticky', left:0, background:'#0D2E5A', zIndex:2,
                                                                 borderRight:'2px solid #374151'}}>
                                                                 Cost Item / Asset
                                                             </th>
                                                             <th style={{padding:'10px 10px', textAlign:'right', minWidth:'110px',
-                                                                background:'#111827', borderRight:'2px solid #4b5563'}}>
+                                                                background:'#0A2347', borderRight:'2px solid #4b5563'}}>
                                                                 Total
                                                             </th>
                                                             {Array.from({length: numPeriods}, (_, i) => (
@@ -2348,23 +2359,23 @@
                                                             return (
                                                                 <React.Fragment key={name}>
                                                                     {/* Blue combined total row */}
-                                                                    <tr style={{background:'#e0e7ff',
+                                                                    <tr style={{background:'#E8F0FB',
                                                                         borderTop: ni === 0 ? '2px solid #6366f1' : '2px solid #a5b4fc'}}>
                                                                         <td style={{padding:'9px 14px', fontWeight:700,
-                                                                            color:'#1e40af', fontSize:'0.82rem',
-                                                                            position:'sticky', left:0, background:'#e0e7ff',
-                                                                            zIndex:1, borderRight:'2px solid #c7d2fe'}}>
+                                                                            color:'#1B4F8A', fontSize:'0.82rem',
+                                                                            position:'sticky', left:0, background:'#E8F0FB',
+                                                                            zIndex:1, borderRight:'2px solid #C5D8EF'}}>
                                                                             {name}
                                                                         </td>
                                                                         <td style={{padding:'9px 10px', textAlign:'right',
-                                                                            fontWeight:700, color:'#1e40af',
-                                                                            borderRight:'2px solid #c7d2fe'}}>
+                                                                            fontWeight:700, color:'#1B4F8A',
+                                                                            borderRight:'2px solid #C5D8EF'}}>
                                                                             {fmtN(combinedTotal)}
                                                                         </td>
                                                                         {combinedDist.map((v, i) => (
                                                                             <td key={i} style={{padding:'9px 8px',
                                                                                 textAlign:'right', fontWeight:700,
-                                                                                color:'#1e40af', borderLeft:'1px solid #c7d2fe'}}>
+                                                                                color:'#1B4F8A', borderLeft:'1px solid #C5D8EF'}}>
                                                                                 {v > 0 ? fmtN(v) : '—'}
                                                                             </td>
                                                                         ))}
@@ -2401,11 +2412,11 @@
                                                         })}
 
                                                         {/* Grand Total Row */}
-                                                        <tr style={{background:'#1e3a5f', color:'white',
-                                                            borderTop:'3px solid #f59e0b'}}>
+                                                        <tr style={{background:'#0D2E5A', color:'white',
+                                                            borderTop:'3px solid #2EAA4A'}}>
                                                             <td style={{padding:'11px 14px', fontWeight:700,
                                                                 fontSize:'0.85rem', position:'sticky', left:0,
-                                                                background:'#1e3a5f', color:'white', zIndex:1,
+                                                                background:'#0D2E5A', color:'white', zIndex:1,
                                                                 borderRight:'2px solid #374151'}}>
                                                                 GRAND TOTAL
                                                             </td>
@@ -2433,7 +2444,7 @@
                                 {showResidential && (
                                     <div className="module-card p-6">
                                         <div className="flex justify-between items-center mb-4">
-                                            <h2 className="text-2xl font-bold text-blue-800">RESIDENTIAL DEVELOPMENT COSTS</h2>
+                                            <h2 className="text-2xl font-bold text-blue-900">RESIDENTIAL DEVELOPMENT COSTS</h2>
                                             <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">All figures in {currency}</span>
                                         </div>
 
@@ -2662,7 +2673,7 @@
                                         {/* Add Row Button */}
                                         <div className="mb-8">
                                             <button onClick={addResidentialCost}
-                                                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-semibold">
+                                                className="bg-blue-800 hover:bg-blue-900 text-white px-4 py-2 rounded text-sm font-semibold">
                                                 + Add Row
                                             </button>
                                         </div>
@@ -2674,7 +2685,7 @@
                                 {showHospitality && (
                                     <div className="module-card p-6">
                                         <div className="flex justify-between items-center mb-4">
-                                            <h2 className="text-2xl font-bold text-green-800">HOSPITALITY DEVELOPMENT COSTS</h2>
+                                            <h2 className="text-2xl font-bold text-green-900">HOSPITALITY DEVELOPMENT COSTS</h2>
                                             <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">All figures in {currency}</span>
                                         </div>
 
@@ -2901,7 +2912,7 @@
 
                                         <div className="mb-8">
                                             <button onClick={addHospitalityCost}
-                                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm font-semibold">
+                                                className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded text-sm font-semibold">
                                                 + Add Row
                                             </button>
                                         </div>
@@ -2915,7 +2926,7 @@
                                 {showRetail && (
                                     <div className="module-card p-6">
                                         <div className="flex justify-between items-center mb-4">
-                                            <h2 className="text-2xl font-bold text-purple-800">RETAIL DEVELOPMENT COSTS</h2>
+                                            <h2 className="text-2xl font-bold text-blue-900">RETAIL DEVELOPMENT COSTS</h2>
                                             <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">All figures in {currency}</span>
                                         </div>
 
@@ -3035,7 +3046,7 @@
                                                             </td>
 
                                                             {/* Total Cost */}
-                                                            <td className="p-2 border-b border-gray-200 text-right font-bold text-purple-900 text-sm">
+                                                            <td className="p-2 border-b border-gray-200 text-right font-bold text-blue-900 text-sm">
                                                                 {formatNumber(total)}
                                                             </td>
 
@@ -3142,7 +3153,7 @@
 
                                         <div className="mb-8">
                                             <button onClick={addRetailCost}
-                                                className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded text-sm font-semibold">
+                                                className="bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded text-sm font-semibold">
                                                 + Add Row
                                             </button>
                                         </div>
@@ -3162,12 +3173,17 @@
                             {activeTab === 'financing' && (
                                 <div className="space-y-6">
 
-                                    {/* ── GLOBAL SETTINGS CARD ── */}
+                                    {/* ── GLOBAL SETTINGS ── */}
                                     <div className="module-card p-6">
-                                        <h3 className="text-2xl font-bold mb-5 text-gray-800">Financing Structure</h3>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <h3 className="text-2xl font-bold text-gray-800">Financing Structure</h3>
+                                            <span className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-600 font-semibold">
+                                                All figures in {currency}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mb-5">Currency sign shown on KPI cards only — all table values are plain numbers</p>
 
                                         <div className="grid gap-6" style={{gridTemplateColumns:'1fr 1fr'}}>
-
                                             {/* Left: Mode + Ratio */}
                                             <div>
                                                 <label className="block text-sm font-bold text-gray-700 mb-2">Financing Ratio Mode</label>
@@ -3175,35 +3191,34 @@
                                                     {[['fixed','🔒 Fixed Ratio'],['separate','⚡ Separate per Line Item']].map(([k,lbl])=>(
                                                         <button key={k} onClick={()=>setFinancingMode(k)}
                                                             className="flex-1 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all"
-                                                            style={{background: financingMode===k ? 'linear-gradient(135deg,#667eea,#764ba2)' : 'white',
-                                                                    color: financingMode===k ? 'white' : '#374151',
-                                                                    borderColor: financingMode===k ? '#667eea' : '#d1d5db'}}>
+                                                            style={{background: financingMode===k?'linear-gradient(135deg,#1B4F8A,#2EAA4A)':'white',
+                                                                    color: financingMode===k?'white':'#374151',
+                                                                    borderColor: financingMode===k?'#1B4F8A':'#d1d5db'}}>
                                                             {lbl}
                                                         </button>
                                                     ))}
                                                 </div>
-                                                {financingMode === 'fixed' ? (
+                                                {financingMode==='fixed' ? (
                                                     <div className="flex gap-4">
                                                         <div className="flex-1">
                                                             <label className="block text-xs text-gray-600 mb-1">Debt %</label>
                                                             <input type="number" min="0" max="100" value={globalDebtPct}
-                                                                onChange={e => setGlobalDebtPct(Math.min(100, Math.max(0, parseFloat(e.target.value)||0)))}
+                                                                onChange={e=>setGlobalDebtPct(Math.min(100,Math.max(0,parseFloat(e.target.value)||0)))}
                                                                 className="input-assumption w-full px-3 py-2 rounded border text-sm"/>
                                                         </div>
                                                         <div className="flex-1">
                                                             <label className="block text-xs text-gray-600 mb-1">Equity %</label>
                                                             <div className="w-full px-3 py-2 rounded border bg-white text-sm font-bold text-green-700 border-gray-300">
-                                                                {(100 - globalDebtPct).toFixed(1)}%
+                                                                {(100-globalDebtPct).toFixed(1)}%
                                                             </div>
                                                         </div>
                                                     </div>
-                                                ) : (
-                                                    <div className="p-3 rounded-lg text-xs text-indigo-700 bg-indigo-50 border border-indigo-200">
-                                                        ✏️ Set Debt % per line item in the <strong>Financing Summary</strong> tab below. Each ratio is shared across all assets for that line item name.
+                                                ):(
+                                                    <div className="p-3 rounded-lg text-xs text-blue-700 bg-blue-50 border border-blue-200">
+                                                        ✏️ Set Debt % per line item in the <strong>Financing Summary</strong> tab below.
                                                     </div>
                                                 )}
                                             </div>
-
                                             {/* Right: Interest */}
                                             <div>
                                                 <label className="block text-sm font-bold text-gray-700 mb-2">Interest Rate & Treatment</label>
@@ -3211,13 +3226,13 @@
                                                     <div className="flex-1">
                                                         <label className="block text-xs text-gray-600 mb-1">Annual Interest Rate (%)</label>
                                                         <input type="number" min="0" max="100" step="0.1" value={interestRate}
-                                                            onChange={e => setInterestRate(parseFloat(e.target.value)||0)}
+                                                            onChange={e=>setInterestRate(parseFloat(e.target.value)||0)}
                                                             className="input-assumption w-full px-3 py-2 rounded border text-sm"/>
                                                     </div>
                                                     <div className="flex-1">
                                                         <label className="block text-xs text-gray-600 mb-1">Periodic Rate ({modelType==='monthly'?'Monthly':'Annual'})</label>
                                                         <div className="w-full px-3 py-2 rounded border bg-white text-sm font-bold text-blue-700 border-gray-300">
-                                                            {modelType==='monthly' ? (interestRate/12).toFixed(4) : interestRate.toFixed(2)}%
+                                                            {modelType==='monthly'?(interestRate/12).toFixed(4):interestRate.toFixed(2)}%
                                                         </div>
                                                     </div>
                                                 </div>
@@ -3226,9 +3241,9 @@
                                                     {[[false,'💸 Expense Separately'],[true,'📦 Capitalize into Debt']].map(([k,lbl])=>(
                                                         <button key={String(k)} onClick={()=>setCapitalizeInterest(k)}
                                                             className="flex-1 py-2 px-3 rounded text-xs font-semibold border-2 transition-all"
-                                                            style={{background: capitalizeInterest===k ? '#f59e0b' : 'white',
-                                                                    color:      capitalizeInterest===k ? 'white'   : '#374151',
-                                                                    borderColor: capitalizeInterest===k ? '#f59e0b' : '#d1d5db'}}>
+                                                            style={{background: capitalizeInterest===k?'#2EAA4A':'white',
+                                                                    color: capitalizeInterest===k?'white':'#374151',
+                                                                    borderColor: capitalizeInterest===k?'#2EAA4A':'#d1d5db'}}>
                                                             {lbl}
                                                         </button>
                                                     ))}
@@ -3236,23 +3251,89 @@
                                             </div>
                                         </div>
 
-                                        {/* Grand KPI totals across all assets */}
+                                        {/* Repayment Settings — full width row */}
+                                        <div className="mt-5 pt-5" style={{borderTop:'1px solid #e5e7eb'}}>
+                                            <label className="block text-sm font-bold text-gray-700 mb-3">
+                                                🏦 Debt Repayment Terms
+                                            </label>
+                                            <div className="grid gap-5" style={{gridTemplateColumns:'1fr 1fr 2fr'}}>
+
+                                                {/* Grace Period — informational */}
+                                                <div>
+                                                    <label className="block text-xs text-gray-600 mb-1">
+                                                        Grace Period
+                                                    </label>
+                                                    <div className="w-full px-3 py-2 rounded border bg-gray-50 text-sm font-bold border-gray-200"
+                                                        style={{color:'#2EAA4A'}}>
+                                                        {constructionPeriods} {modelType==='monthly'?'Months':'Years'} (Full Construction Phase)
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 mt-1">No repayment during construction</p>
+                                                </div>
+
+                                                {/* Repayment Period input */}
+                                                <div>
+                                                    <label className="block text-xs text-gray-600 mb-1">
+                                                        Repayment Period ({modelType==='monthly'?'Months':'Years'})
+                                                    </label>
+                                                    <input type="number" min="1"
+                                                        max={operationsPeriods}
+                                                        value={repaymentPeriods}
+                                                        onChange={e => setRepaymentPeriods(Math.min(operationsPeriods, Math.max(1, parseInt(e.target.value)||1)))}
+                                                        className="input-assumption w-full px-3 py-2 rounded border text-sm"/>
+                                                    <p className="text-xs text-gray-400 mt-1">
+                                                        Max: {operationsPeriods} {modelType==='monthly'?'months':'years'} (full ops phase)
+                                                    </p>
+                                                </div>
+
+                                                {/* Repayment Method toggle */}
+                                                <div>
+                                                    <label className="block text-xs text-gray-600 mb-1">Repayment Method</label>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={()=>setRepaymentMethod('fixed')}
+                                                            className="flex-1 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all"
+                                                            style={{background: repaymentMethod==='fixed'?'linear-gradient(135deg,#1B4F8A,#2EAA4A)':'white',
+                                                                    color: repaymentMethod==='fixed'?'white':'#374151',
+                                                                    borderColor: repaymentMethod==='fixed'?'#1B4F8A':'#d1d5db'}}>
+                                                            📅 Fixed Payment
+                                                        </button>
+                                                        <button onClick={()=>setRepaymentMethod('cashsweep')}
+                                                            className="flex-1 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all"
+                                                            style={{background: repaymentMethod==='cashsweep'?'#6B7280':'white',
+                                                                    color: repaymentMethod==='cashsweep'?'white':'#6B7280',
+                                                                    borderColor: '#6B7280'}}>
+                                                            🔄 Cash Sweep
+                                                        </button>
+                                                    </div>
+                                                    {repaymentMethod==='cashsweep' && (
+                                                        <div className="mt-2 p-2 rounded-lg text-xs font-medium"
+                                                            style={{background:'#F5F7FA',color:'#6B7280',border:'1px dashed #6B7280'}}>
+                                                            ⏳ <strong>Coming Soon — Return Analysis Linkage</strong><br/>
+                                                            Cash Sweep will connect to the Revenue / Return Analysis module once built.<br/>
+                                                            <span style={{color:'#1B4F8A'}}>📌 Dev Note:</span> During-construction sales (pre-sales / off-plan) generate cash that stays with the company. Net debt requirement = CAPEX − Sales Proceeds. A "during-construction sales" flag will live in the Revenue module with a user-defined start period. Once Revenue module is complete, cash sweep here will auto-pull those proceeds to reduce outstanding debt period by period.
+                                                        </div>
+                                                    )}
+                                                    {repaymentMethod==='fixed' && (
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            Principal only · Equal instalments · {repaymentPeriods} {modelType==='monthly'?'month':'year'} schedule
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Grand KPI totals */}
                                         {(()=>{
-                                            const assets = [
-                                                ...(showResidential?['residential']:[]),
-                                                ...(showHospitality?['hospitality']:[]),
-                                                'retail'
-                                            ];
-                                            const tCost  = assets.reduce((s,a)=>{ const f=getFinForAsset(a); return s+(f?f.lineItems.reduce((x,l)=>x+l.total,0):0); },0);
-                                            const tDebt  = assets.reduce((s,a)=>{ const f=getFinForAsset(a); return s+(f?f.totalDebt:0); },0);
-                                            const tEq    = assets.reduce((s,a)=>{ const f=getFinForAsset(a); return s+(f?f.totalEquity:0); },0);
-                                            const tInt   = assets.reduce((s,a)=>{ const f=getFinForAsset(a); return s+(f?f.totalInterest:0); },0);
+                                            const assets=[...(showResidential?['residential']:[]),...(showHospitality?['hospitality']:[]),'retail'];
+                                            const tCost=assets.reduce((s,a)=>{const f=getFinForAsset(a);return s+(f?f.lineItems.reduce((x,l)=>x+l.total,0):0);},0);
+                                            const tDebt=assets.reduce((s,a)=>{const f=getFinForAsset(a);return s+(f?f.totalDebt:0);},0);
+                                            const tEq=assets.reduce((s,a)=>{const f=getFinForAsset(a);return s+(f?f.totalEquity:0);},0);
+                                            const tInt=assets.reduce((s,a)=>{const f=getFinForAsset(a);return s+(f?f.totalInterest:0);},0);
                                             return (
                                                 <div className="grid grid-cols-4 gap-3 mt-5">
-                                                    {[['Total Dev Cost',tCost,'#1e40af','#dbeafe'],
-                                                      ['Total Debt',tDebt,'#dc2626','#fee2e2'],
-                                                      ['Total Equity',tEq,'#16a34a','#dcfce7'],
-                                                      ['Total Finance Cost',tInt,'#d97706','#fef3c7']
+                                                    {[['Total Dev Cost',tCost,'#1B4F8A','#E8F0FB'],
+                                                      ['Total Debt',tDebt,'#1B4F8A','#E8F0FB'],
+                                                      ['Total Equity',tEq,'#2EAA4A','#E8F7EC'],
+                                                      ['Total Finance Cost',tInt,'#6B7280','#F5F7FA']
                                                     ].map(([lbl,val,c,bg])=>(
                                                         <div key={lbl} className="rounded-xl p-3 text-center" style={{background:bg}}>
                                                             <div className="text-xs text-gray-600 mb-1">{lbl}</div>
@@ -3264,76 +3345,60 @@
                                         })()}
                                     </div>
 
-                                    {/* ── ASSET TABS ── */}
+                                    {/* ── TWO VIEW TABS ── */}
                                     <div className="module-card p-6">
-                                        <div className="flex gap-2 mb-4">
-                                            {[
-                                                ['residential','🏠 Residential',showResidential,'#2563eb'],
-                                                ['hospitality','🏨 Hospitality',showHospitality,'#059669'],
-                                                ['retail',     '🏪 Retail',     true,            '#7c3aed'],
-                                            ].filter(t=>t[2]).map(([k,lbl,,c])=>(
-                                                <button key={k} onClick={()=>setActiveFinAsset(k)}
-                                                    className="px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all"
-                                                    style={{background: activeFinAsset===k ? c : 'white',
-                                                            color:      activeFinAsset===k ? 'white' : c,
-                                                            borderColor: c}}>
-                                                    {lbl}
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        {/* View sub-tabs */}
                                         <div className="flex gap-2 mb-5 pb-3 border-b-2 border-gray-100">
-                                            {[['summary','📊 Financing Summary'],['debt','🏦 Debt Schedule'],
-                                              ['equity','💰 Equity Schedule'],['interest','📈 Finance Cost']
-                                            ].map(([k,lbl])=>(
+                                            {[['summary','📊 Financing Summary'],['schedules','📋 Debt, Equity & Finance Cost']].map(([k,lbl])=>(
                                                 <button key={k} onClick={()=>setActiveFinView(k)}
-                                                    className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-                                                    style={{background: activeFinView===k ? 'linear-gradient(135deg,#667eea,#764ba2)' : '#f3f4f6',
-                                                            color:      activeFinView===k ? 'white' : '#374151'}}>
+                                                    className="px-5 py-2 rounded-lg text-sm font-semibold transition-all"
+                                                    style={{background: activeFinView===k?'linear-gradient(135deg,#1B4F8A,#2EAA4A)':'#f3f4f6',
+                                                            color: activeFinView===k?'white':'#374151'}}>
                                                     {lbl}
                                                 </button>
                                             ))}
                                         </div>
 
-                                        {/* ── CONTENT ── */}
                                         {(()=>{
-                                            const asset = activeFinAsset;
-                                            const fin   = getFinForAsset(asset);
-                                            if (!fin) return <div className="text-gray-400 py-8 text-center">This asset is not enabled for the current project type.</div>;
+                                            const ACOLOR={residential:'#1B4F8A',hospitality:'#2EAA4A',retail:'#6B7280'};
+                                            const ALABEL={residential:'Residential',hospitality:'Hospitality',retail:'Retail'};
+                                            const visibleAssets=[...(showResidential?['residential']:[]),...(showHospitality?['hospitality']:[]),'retail'];
+                                            const totalPeriods=constructionPeriods+operationsPeriods;
+                                            const pLabel=p=>modelType==='monthly'?`M${p}`:`Y${p}`;
+                                            const periods=Array.from({length:totalPeriods+1},(_,p)=>p);
+                                            // No currency sign in tables — plain numbers only
+                                            const fN=v=>(!v||v===0)?'—':Math.round(v).toLocaleString('en-US');
 
-                                            const ACOLOR = {residential:'#2563eb', hospitality:'#059669', retail:'#7c3aed'};
-                                            const ALABEL = {residential:'Residential', hospitality:'Hospitality', retail:'Retail'};
-                                            const color  = ACOLOR[asset];
-                                            const totalPeriods = fin.totalPeriods;
-                                            const pLabel = p => modelType==='monthly' ? `M${p}` : `Y${p}`;
-                                            const periods = Array.from({length: totalPeriods + 1}, (_, p) => p);
-                                            const fN = v => (!v || v===0) ? '—' : Math.round(v).toLocaleString('en-US');
-
-                                            // ── Reusable schedule table: rows=items, cols=periods ──
-                                            const SchedTable = ({rows, note}) => (
-                                                <div>
-                                                    {note && <div className="mb-3 p-2 rounded text-xs" style={{background:'#fef3c7',color:'#92400e'}}>{note}</div>}
+                                            // ── Schedule table renderer (periods=cols, items=rows) ──
+                                            // Total column: for Opening/Closing Balance rows use first-period value (not sum)
+                                            // For flow rows (additions, repayment, interest) use sum
+                                            const SchedTable=({title,titleColor,titleBg,rows,note})=>(
+                                                <div className="mb-8">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <div className="px-4 py-2 rounded-lg font-bold text-sm" style={{background:titleBg,color:titleColor}}>
+                                                            {title}
+                                                        </div>
+                                                        {note&&<div className="text-xs px-3 py-1 rounded" style={{background:'#F5F7FA',color:'#374151'}}>{note}</div>}
+                                                    </div>
                                                     <div className="overflow-x-auto rounded-xl border border-gray-200">
-                                                        <table style={{borderCollapse:'collapse', fontSize:'0.78rem', width:'100%',
-                                                            minWidth: Math.max(600, (totalPeriods + 2) * 82) + 'px'}}>
+                                                        <table style={{borderCollapse:'collapse',fontSize:'0.78rem',width:'100%',
+                                                            minWidth:Math.max(600,(totalPeriods+2)*82)+'px'}}>
                                                             <thead>
-                                                                <tr style={{background:'#1f2937', color:'white'}}>
-                                                                    <th style={{padding:'9px 12px', textAlign:'left', minWidth:'210px',
-                                                                        position:'sticky', left:0, background:'#1f2937', zIndex:2,
+                                                                <tr style={{background:'#0D2E5A',color:'white'}}>
+                                                                    <th style={{padding:'9px 12px',textAlign:'left',minWidth:'210px',
+                                                                        position:'sticky',left:0,background:'#0D2E5A',zIndex:2,
                                                                         borderRight:'2px solid #374151'}}>
                                                                         Description
                                                                     </th>
-                                                                    <th style={{padding:'9px 8px', textAlign:'right', minWidth:'105px',
-                                                                        background:'#111827', borderRight:'2px solid #4b5563'}}>
+                                                                    <th style={{padding:'9px 8px',textAlign:'right',minWidth:'105px',
+                                                                        background:'#0A2347',borderRight:'2px solid #4b5563'}}>
                                                                         Total
                                                                     </th>
                                                                     {periods.map(p=>(
-                                                                        <th key={p} style={{padding:'9px 7px', textAlign:'right', minWidth:'76px',
-                                                                            background: p <= constructionPeriods ? '#1f2937' : '#312e81',
-                                                                            borderLeft: p===constructionPeriods+1 ? '2px solid #818cf8' : '1px solid #374151'}}>
+                                                                        <th key={p} style={{padding:'9px 7px',textAlign:'right',minWidth:'76px',
+                                                                            background:p<=constructionPeriods?'#0D2E5A':'#0A3D62',
+                                                                            borderLeft:p===constructionPeriods+1?'2px solid #2EAA4A':'1px solid #374151'}}>
                                                                             {pLabel(p)}
-                                                                            <div style={{fontSize:'0.58rem', opacity:0.65, fontWeight:400}}>
+                                                                            <div style={{fontSize:'0.58rem',opacity:0.65,fontWeight:400}}>
                                                                                 {p===0?'Pre':p<=constructionPeriods?'Con':'Ops'}
                                                                             </div>
                                                                         </th>
@@ -3341,32 +3406,37 @@
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                {rows.map((row, ri)=>{
-                                                                    const isTotal = row.style==='total';
-                                                                    const isAdd   = row.style==='addition';
-                                                                    const isDed   = row.style==='deduction';
-                                                                    const isSub   = row.style==='subtotal';
-                                                                    const rowBg   = isTotal?'#1e3a5f':isSub?'#e0e7ff': ri%2===0?'white':'#f9fafb';
-                                                                    const rowClr  = isTotal?'white':isAdd?'#16a34a':isDed?'#dc2626':isSub?'#1e40af':'#374151';
-                                                                    const fw      = isTotal||isSub ? 700 : 400;
-                                                                    const rowTotal= row.data.reduce((a,b)=>a+b,0);
+                                                                {rows.map((row,ri)=>{
+                                                                    const isTotal=row.style==='total';
+                                                                    const isAdd=row.style==='addition';
+                                                                    const isDed=row.style==='deduction';
+                                                                    const isSub=row.style==='subtotal';
+                                                                    const isBalance=row.isBalance===true;
+                                                                    const rowBg=isTotal?'#0D2E5A':isSub?'#E8F0FB':ri%2===0?'white':'#f9fafb';
+                                                                    const rowClr=isTotal?'white':isAdd?'#2EAA4A':isDed?'#dc2626':isSub?'#1B4F8A':'#374151';
+                                                                    const fw=isTotal||isSub?700:400;
+                                                                    // Opening/Closing balance: Total col = period 0 value (or last closing)
+                                                                    // Flow rows: Total col = sum
+                                                                    const totalVal = isBalance
+                                                                        ? (row.balanceTotal !== undefined ? row.balanceTotal : row.data[0])
+                                                                        : row.data.reduce((a,b)=>a+b,0);
                                                                     return (
                                                                         <tr key={ri} style={{background:rowBg}}>
-                                                                            <td style={{padding:'7px 12px', fontWeight:fw, color:rowClr,
-                                                                                position:'sticky', left:0, background:rowBg, zIndex:1,
+                                                                            <td style={{padding:'7px 12px',fontWeight:fw,color:rowClr,
+                                                                                position:'sticky',left:0,background:rowBg,zIndex:1,
                                                                                 borderRight:'2px solid #e5e7eb'}}>
                                                                                 {row.label}
                                                                             </td>
-                                                                            <td style={{padding:'7px 8px', textAlign:'right', fontWeight:fw,
-                                                                                color:rowClr, borderRight:'2px solid #e5e7eb'}}>
-                                                                                {rowTotal!==0 ? fN(Math.abs(rowTotal)) : '—'}
+                                                                            <td style={{padding:'7px 8px',textAlign:'right',fontWeight:fw,
+                                                                                color:rowClr,borderRight:'2px solid #e5e7eb'}}>
+                                                                                {totalVal!==0?fN(Math.abs(totalVal)):'—'}
                                                                             </td>
                                                                             {row.data.map((v,p)=>(
-                                                                                <td key={p} style={{padding:'7px 7px', textAlign:'right',
-                                                                                    fontWeight: isTotal?700:400, color:rowClr,
-                                                                                    background: isTotal?'#1e3a5f':undefined,
-                                                                                    borderLeft: p===constructionPeriods+1?'2px solid #818cf8':'1px solid #e5e7eb'}}>
-                                                                                    {v!==0 ? fN(Math.abs(v)) : '—'}
+                                                                                <td key={p} style={{padding:'7px 7px',textAlign:'right',
+                                                                                    fontWeight:isTotal?700:400,color:rowClr,
+                                                                                    background:isTotal?'#0D2E5A':undefined,
+                                                                                    borderLeft:p===constructionPeriods+1?'2px solid #2EAA4A':'1px solid #e5e7eb'}}>
+                                                                                    {v!==0?fN(Math.abs(v)):'—'}
                                                                                 </td>
                                                                             ))}
                                                                         </tr>
@@ -3375,24 +3445,28 @@
                                                             </tbody>
                                                         </table>
                                                     </div>
-                                                    <div className="flex gap-4 mt-1 text-xs text-gray-400">
-                                                        <span>■ Dark = Construction &nbsp;|&nbsp; <span style={{color:'#312e81'}}>■ Purple</span> = Operations &nbsp;|&nbsp; <span style={{color:'#818cf8'}}>│</span> = Boundary</span>
+                                                    <div className="mt-1 text-xs text-gray-400">
+                                                        ■ Dark = Construction &nbsp;|&nbsp; <span style={{color:'#2EAA4A'}}>■ Green</span> = Operations &nbsp;|&nbsp; <span style={{color:'#2EAA4A'}}>│</span> = Boundary
                                                     </div>
                                                 </div>
                                             );
 
-                                            // ──────────────────────────────────────────────────────
-                                            // FINANCING SUMMARY VIEW
-                                            // ──────────────────────────────────────────────────────
-                                            if (activeFinView === 'summary') {
-                                                const totalCost = fin.lineItems.reduce((s,l)=>s+l.total,0);
+                                            // ════════════════════════════════════════
+                                            // TAB 1: FINANCING SUMMARY
+                                            // ════════════════════════════════════════
+                                            if (activeFinView==='summary') {
+                                                // Combined totals across all assets
+                                                const allDebt=visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.totalDebt||0),0);
+                                                const allEq=visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.totalEquity||0),0);
+                                                const allCost=combinedLines.reduce((s,l)=>s+l.total,0);
+
                                                 return (
                                                     <div>
-                                                        {/* Asset KPIs */}
+                                                        {/* Summary KPIs */}
                                                         <div className="grid grid-cols-3 gap-4 mb-5">
-                                                            {[['Total Cost',totalCost,'#1e40af','#dbeafe'],
-                                                              ['Total Debt',fin.totalDebt,'#dc2626','#fee2e2'],
-                                                              ['Total Equity',fin.totalEquity,'#16a34a','#dcfce7']
+                                                            {[['Total Dev Cost (All Assets)',allCost,'#1B4F8A','#E8F0FB'],
+                                                              ['Total Debt',allDebt,'#1B4F8A','#E8F0FB'],
+                                                              ['Total Equity',allEq,'#2EAA4A','#E8F7EC']
                                                             ].map(([lbl,val,c,bg])=>(
                                                                 <div key={lbl} className="rounded-xl p-4 text-center" style={{background:bg}}>
                                                                     <div className="text-sm text-gray-600">{lbl}</div>
@@ -3401,208 +3475,616 @@
                                                             ))}
                                                         </div>
 
-                                                        {/* Per-line-item ratio table */}
-                                                        {financingMode === 'separate' && (
-                                                            <div className="mb-3 p-3 rounded-lg text-xs bg-indigo-50 border border-indigo-200 text-indigo-800">
-                                                                ℹ️ Ratios below are <strong>shared across all assets</strong> for each line item name (from Combined Cost Summary). Changes here apply to all asset schedules.
-                                                            </div>
-                                                        )}
-                                                        <h5 className="font-bold text-sm text-gray-700 mb-2">
-                                                            {financingMode==='separate'
-                                                                ? `⚡ ${ALABEL[asset]} — Line Item Debt/Equity Split (ratios set in Combined Summary)`
-                                                                : `🔒 ${ALABEL[asset]} — Fixed Ratio Applied to All Line Items`}
-                                                        </h5>
-
-                                                        {/* Combined line items table (separate mode) or asset line items (fixed mode) */}
-                                                        {financingMode === 'separate' ? (
-                                                            <div className="overflow-x-auto rounded-xl border border-gray-200 mb-5">
-                                                                <table style={{borderCollapse:'collapse', width:'100%', fontSize:'0.82rem'}}>
-                                                                    <thead>
-                                                                        <tr style={{background:'#1f2937', color:'white'}}>
-                                                                            {['Cost Line Item (Combined)','Combined Total','Debt %','Equity %','Combined Debt','Combined Equity'].map((h,i)=>(
-                                                                                <th key={i} style={{padding:'9px 10px',
-                                                                                    textAlign: i===0?'left':'right', minWidth: i===0?'220px':'105px'}}>
-                                                                                    {h}
-                                                                                </th>
-                                                                            ))}
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {combinedLines.map((line, idx)=>{
-                                                                            const dPct = getLineDebtPct(line.name);
-                                                                            const ePct = 100 - dPct;
-                                                                            return (
-                                                                                <tr key={idx} style={{background: idx%2===0?'white':'#f9fafb'}}>
-                                                                                    <td style={{padding:'7px 10px', fontWeight:500}}>{line.name}</td>
-                                                                                    <td style={{padding:'7px 10px', textAlign:'right'}}>{currency} {formatNumber(line.total)}</td>
-                                                                                    <td style={{padding:'7px 10px', textAlign:'center'}}>
-                                                                                        <input type="number" min="0" max="100" step="1"
-                                                                                            value={dPct}
-                                                                                            onChange={e => setLineDebtPct(line.name, e.target.value)}
-                                                                                            className="input-assumption"
-                                                                                            style={{width:'68px', padding:'3px 6px', borderRadius:'4px',
-                                                                                                textAlign:'center', fontSize:'0.8rem'}}/>
+                                                        {/* Combined line-item table — same structure as Combined Cost Summary */}
+                                                        <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                                            <table style={{borderCollapse:'collapse',width:'100%',fontSize:'0.82rem'}}>
+                                                                <thead>
+                                                                    <tr style={{background:'#0D2E5A',color:'white'}}>
+                                                                        <th style={{padding:'10px 12px',textAlign:'left',minWidth:'220px',
+                                                                            position:'sticky',left:0,background:'#0D2E5A',zIndex:2,
+                                                                            borderRight:'2px solid #374151'}}>
+                                                                            Cost Item / Asset
+                                                                        </th>
+                                                                        <th style={{padding:'10px 10px',textAlign:'right',minWidth:'115px',
+                                                                            borderRight:'1px solid #374151'}}>Combined Total</th>
+                                                                        <th style={{padding:'10px 10px',textAlign:'center',minWidth:'90px',
+                                                                            borderRight:'1px solid #374151'}}>Debt %</th>
+                                                                        <th style={{padding:'10px 10px',textAlign:'center',minWidth:'90px',
+                                                                            borderRight:'2px solid #4b5563',background:'#0A2347'}}>Equity %</th>
+                                                                        <th style={{padding:'10px 10px',textAlign:'right',minWidth:'115px',
+                                                                            borderRight:'1px solid #374151'}}>Total Debt</th>
+                                                                        <th style={{padding:'10px 10px',textAlign:'right',minWidth:'115px',
+                                                                            borderRight:'1px solid #374151'}}>Total Equity</th>
+                                                                        {visibleAssets.map(a=>(
+                                                                            <th key={a} colSpan="2" style={{padding:'10px 10px',textAlign:'center',
+                                                                                minWidth:'180px',
+                                                                                background:a==='residential'?'#0D2E5A':a==='hospitality'?'#1A5C30':'#4B5563',
+                                                                                borderLeft:'2px solid #374151'}}>
+                                                                                {ALABEL[a]}
+                                                                            </th>
+                                                                        ))}
+                                                                    </tr>
+                                                                    <tr style={{background:'#374151',color:'#d1d5db',fontSize:'0.72rem'}}>
+                                                                        <td style={{padding:'4px 12px',position:'sticky',left:0,background:'#374151',
+                                                                            borderRight:'2px solid #374151'}}></td>
+                                                                        <td style={{padding:'4px 10px',textAlign:'right',borderRight:'1px solid #4b5563'}}></td>
+                                                                        <td style={{padding:'4px 10px',textAlign:'center',borderRight:'1px solid #4b5563'}}></td>
+                                                                        <td style={{padding:'4px 10px',textAlign:'center',borderRight:'2px solid #4b5563'}}></td>
+                                                                        <td style={{padding:'4px 10px',textAlign:'right',borderRight:'1px solid #4b5563'}}></td>
+                                                                        <td style={{padding:'4px 10px',textAlign:'right',borderRight:'1px solid #4b5563'}}></td>
+                                                                        {visibleAssets.map(a=>(
+                                                                            <React.Fragment key={a}>
+                                                                                <td style={{padding:'4px 8px',textAlign:'right',borderLeft:'2px solid #374151'}}>Debt</td>
+                                                                                <td style={{padding:'4px 8px',textAlign:'right',borderLeft:'1px solid #4b5563'}}>Equity</td>
+                                                                            </React.Fragment>
+                                                                        ))}
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {combinedLines.map((line,ni)=>{
+                                                                        const dPct=getLineDebtPct(line.name);
+                                                                        const ePct=100-dPct;
+                                                                        const lineDebt=line.total*dPct/100;
+                                                                        const lineEq=line.total*ePct/100;
+                                                                        const ABGLIGHT={residential:'#E8F0FB',hospitality:'#E8F7EC',retail:'#F5F7FA'};
+                                                                        const ABGDARK={residential:'#E8F0FB',hospitality:'#d1fae5',retail:'#F3F4F6'};
+                                                                        const combinedRowBg=ni%2===0?'white':'#f9fafb';
+                                                                        return (
+                                                                            <React.Fragment key={line.name}>
+                                                                                {/* Combined line item row — blue header with Debt/Equity inputs */}
+                                                                                <tr style={{background:'#E8F0FB',borderTop:'2px solid #a5b4fc'}}>
+                                                                                    <td style={{padding:'9px 12px',fontWeight:700,color:'#1B4F8A',
+                                                                                        position:'sticky',left:0,background:'#E8F0FB',zIndex:1,
+                                                                                        borderRight:'2px solid #C5D8EF'}}>
+                                                                                        {line.name}
                                                                                     </td>
-                                                                                    <td style={{padding:'7px 10px', textAlign:'center', fontWeight:700, color:'#16a34a'}}>{ePct.toFixed(1)}%</td>
-                                                                                    <td style={{padding:'7px 10px', textAlign:'right', fontWeight:600, color:'#dc2626'}}>{currency} {formatNumber(line.total*dPct/100)}</td>
-                                                                                    <td style={{padding:'7px 10px', textAlign:'right', fontWeight:600, color:'#16a34a'}}>{currency} {formatNumber(line.total*ePct/100)}</td>
+                                                                                    <td style={{padding:'9px 10px',textAlign:'right',fontWeight:700,
+                                                                                        color:'#1B4F8A',borderRight:'1px solid #C5D8EF'}}>
+                                                                                        {fN(line.total)}
+                                                                                    </td>
+                                                                                    {/* Debt % input — only on combined row */}
+                                                                                    <td style={{padding:'9px 10px',textAlign:'center',borderRight:'1px solid #C5D8EF'}}>
+                                                                                        {financingMode==='separate'?(
+                                                                                            <input type="number" min="0" max="100" step="1"
+                                                                                                value={dPct}
+                                                                                                onChange={e=>setLineDebtPct(line.name,e.target.value)}
+                                                                                                className="input-assumption"
+                                                                                                style={{width:'62px',padding:'3px 6px',borderRadius:'4px',
+                                                                                                    textAlign:'center',fontSize:'0.8rem'}}/>
+                                                                                        ):(
+                                                                                            <span style={{fontWeight:700,color:'#1B4F8A'}}>{dPct}%</span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                    <td style={{padding:'9px 10px',textAlign:'center',fontWeight:700,
+                                                                                        color:'#2EAA4A',borderRight:'2px solid #C5D8EF'}}>
+                                                                                        {ePct.toFixed(1)}%
+                                                                                    </td>
+                                                                                    <td style={{padding:'9px 10px',textAlign:'right',fontWeight:700,
+                                                                                        color:'#1B4F8A',borderRight:'1px solid #C5D8EF'}}>
+                                                                                        {fN(lineDebt)}
+                                                                                    </td>
+                                                                                    <td style={{padding:'9px 10px',textAlign:'right',fontWeight:700,
+                                                                                        color:'#2EAA4A',borderRight:'1px solid #C5D8EF'}}>
+                                                                                        {fN(lineEq)}
+                                                                                    </td>
+                                                                                    {/* Per-asset debt & equity for this line item */}
+                                                                                    {visibleAssets.map(a=>{
+                                                                                        const fin=getFinForAsset(a);
+                                                                                        const li=fin?.lineItems.find(l=>l.name===line.name);
+                                                                                        return (
+                                                                                            <React.Fragment key={a}>
+                                                                                                <td style={{padding:'9px 8px',textAlign:'right',fontWeight:600,
+                                                                                                    color:'#1B4F8A',background:ABGDARK[a],
+                                                                                                    borderLeft:'2px solid #C5D8EF'}}>
+                                                                                                    {fN(li?li.debtAmt:0)}
+                                                                                                </td>
+                                                                                                <td style={{padding:'9px 8px',textAlign:'right',fontWeight:600,
+                                                                                                    color:'#2EAA4A',background:ABGDARK[a],
+                                                                                                    borderLeft:'1px solid #C5D8EF'}}>
+                                                                                                    {fN(li?li.equityAmt:0)}
+                                                                                                </td>
+                                                                                            </React.Fragment>
+                                                                                        );
+                                                                                    })}
                                                                                 </tr>
+                                                                            </React.Fragment>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                                <tfoot>
+                                                                    <tr style={{background:'#0D2E5A',color:'white',borderTop:'3px solid #2EAA4A'}}>
+                                                                        <td style={{padding:'10px 12px',fontWeight:700,position:'sticky',left:0,
+                                                                            background:'#0D2E5A',color:'white',borderRight:'2px solid #374151'}}>
+                                                                            GRAND TOTAL
+                                                                        </td>
+                                                                        <td style={{padding:'10px 10px',textAlign:'right',fontWeight:700,borderRight:'1px solid #374151'}}>
+                                                                            {fN(combinedLines.reduce((s,l)=>s+l.total,0))}
+                                                                        </td>
+                                                                        <td style={{padding:'10px 10px',textAlign:'center',fontWeight:700,borderRight:'1px solid #374151'}}>—</td>
+                                                                        <td style={{padding:'10px 10px',textAlign:'center',fontWeight:700,borderRight:'2px solid #374151'}}>—</td>
+                                                                        <td style={{padding:'10px 10px',textAlign:'right',fontWeight:700,color:'#FCA5A5',borderRight:'1px solid #374151'}}>
+                                                                            {fN(combinedLines.reduce((s,l)=>s+l.total*getLineDebtPct(l.name)/100,0))}
+                                                                        </td>
+                                                                        <td style={{padding:'10px 10px',textAlign:'right',fontWeight:700,color:'#A8D5B5',borderRight:'1px solid #374151'}}>
+                                                                            {fN(combinedLines.reduce((s,l)=>s+l.total*(100-getLineDebtPct(l.name))/100,0))}
+                                                                        </td>
+                                                                        {visibleAssets.map(a=>{
+                                                                            const fin=getFinForAsset(a);
+                                                                            return (
+                                                                                <React.Fragment key={a}>
+                                                                                    <td style={{padding:'10px 8px',textAlign:'right',fontWeight:700,
+                                                                                        color:'#FCA5A5',borderLeft:'2px solid #374151'}}>
+                                                                                        {fN(fin?fin.totalDebt:0)}
+                                                                                    </td>
+                                                                                    <td style={{padding:'10px 8px',textAlign:'right',fontWeight:700,
+                                                                                        color:'#A8D5B5',borderLeft:'1px solid #374151'}}>
+                                                                                        {fN(fin?fin.totalEquity:0)}
+                                                                                    </td>
+                                                                                </React.Fragment>
                                                                             );
                                                                         })}
-                                                                    </tbody>
-                                                                    <tfoot>
-                                                                        <tr style={{background: color, color:'white'}}>
-                                                                            <td style={{padding:'9px 10px', fontWeight:700}}>TOTAL (All Assets)</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'right', fontWeight:700}}>{currency} {formatNumber(combinedLines.reduce((s,l)=>s+l.total,0))}</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'center', fontWeight:700}}>—</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'center', fontWeight:700}}>—</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'right', fontWeight:700}}>{currency} {formatNumber(combinedLines.reduce((s,l)=>s+l.total*getLineDebtPct(l.name)/100,0))}</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'right', fontWeight:700}}>{currency} {formatNumber(combinedLines.reduce((s,l)=>s+l.total*(100-getLineDebtPct(l.name))/100,0))}</td>
-                                                                        </tr>
-                                                                    </tfoot>
-                                                                </table>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="overflow-x-auto rounded-xl border border-gray-200 mb-5">
-                                                                <table style={{borderCollapse:'collapse', width:'100%', fontSize:'0.82rem'}}>
-                                                                    <thead>
-                                                                        <tr style={{background:'#1f2937', color:'white'}}>
-                                                                            {['Cost Line Item','Total Cost','Debt %','Equity %','Debt Amount','Equity Amount'].map((h,i)=>(
-                                                                                <th key={i} style={{padding:'9px 10px',
-                                                                                    textAlign: i===0?'left':'right', minWidth: i===0?'200px':'105px'}}>
-                                                                                    {h}
-                                                                                </th>
+                                                                    </tr>
+                                                                </tfoot>
+                                                            </table>
+                                                        </div>
+
+                                                        {/* ── PERIOD-WISE DEBT & EQUITY DRAWDOWN ── */}
+                                                        {(()=>{
+                                                            const numP = constructionPeriods + 1;
+                                                            const pLabel = i => modelType==='monthly' ? `Month ${i}` : `Year ${i}`;
+                                                            const ACOLOR = {residential:'#1B4F8A', hospitality:'#2EAA4A', retail:'#6B7280'};
+                                                            const ABGLIGHT = {residential:'#E8F0FB', hospitality:'#E8F7EC', retail:'#F5F7FA'};
+                                                            const ALABEL = {residential:'Residential', hospitality:'Hospitality', retail:'Retail'};
+
+                                                            // Per line item, per asset — debt & equity period distributions
+                                                            const lineData = combinedLines.map(line => {
+                                                                const dPct = getLineDebtPct(line.name) / 100;
+                                                                const ePct = 1 - dPct;
+                                                                // Combined dist (sum all assets)
+                                                                const combDebt = Array(numP).fill(0);
+                                                                const combEq   = Array(numP).fill(0);
+                                                                // Per-asset dist
+                                                                const assetDebt = {};
+                                                                const assetEq   = {};
+                                                                visibleAssets.forEach(asset => {
+                                                                    const costs = asset==='residential'?residentialCosts:asset==='hospitality'?hospitalityCosts:retailCosts;
+                                                                    const cost  = costs.find(c=>c.name===line.name);
+                                                                    const d     = cost ? distributeCost(cost, asset) : Array(numP).fill(0);
+                                                                    assetDebt[asset] = d.slice(0,numP).map(v=>v*dPct);
+                                                                    assetEq[asset]   = d.slice(0,numP).map(v=>v*ePct);
+                                                                    assetDebt[asset].forEach((v,p)=>{ combDebt[p]+=v; combEq[p]+=assetEq[asset][p]; });
+                                                                });
+                                                                return {
+                                                                    name: line.name,
+                                                                    combDebt, combEq,
+                                                                    assetDebt, assetEq,
+                                                                    totalDebt: combDebt.reduce((a,b)=>a+b,0),
+                                                                    totalEq:   combEq.reduce((a,b)=>a+b,0),
+                                                                };
+                                                            });
+
+                                                            // Asset-level period totals for summary tables
+                                                            const assetDebtTotals = {};
+                                                            const assetEqTotals   = {};
+                                                            visibleAssets.forEach(asset => {
+                                                                assetDebtTotals[asset] = Array(numP).fill(0);
+                                                                assetEqTotals[asset]   = Array(numP).fill(0);
+                                                                lineData.forEach(l => {
+                                                                    l.assetDebt[asset]?.forEach((v,p)=>{ assetDebtTotals[asset][p]+=v; });
+                                                                    l.assetEq[asset]?.forEach((v,p)=>{ assetEqTotals[asset][p]+=v; });
+                                                                });
+                                                            });
+
+                                                            // Grand combined totals
+                                                            const grandDebt = Array(numP).fill(0);
+                                                            const grandEq   = Array(numP).fill(0);
+                                                            lineData.forEach(l=>{ l.combDebt.forEach((v,p)=>grandDebt[p]+=v); l.combEq.forEach((v,p)=>grandEq[p]+=v); });
+
+                                                            // ── Reusable drawdown table (blue combined + asset sub-rows) ──
+                                                            const DrawdownTable = ({title, titleBg, isDebt}) => {
+                                                                const grandDist = isDebt ? grandDebt : grandEq;
+                                                                return (
+                                                                    <div className="mt-7">
+                                                                        <div className="flex items-center gap-3 mb-3">
+                                                                            <div className="px-4 py-2 rounded-lg font-bold text-sm" style={{background:titleBg,color:'white'}}>
+                                                                                {title}
+                                                                            </div>
+                                                                            <span className="text-xs text-gray-400">Period-wise drawdowns follow cost phasing — construction periods only</span>
+                                                                        </div>
+                                                                        <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                                                            <table style={{borderCollapse:'collapse',fontSize:'0.78rem',width:'100%',
+                                                                                minWidth:Math.max(600,(numP+2)*95)+'px'}}>
+                                                                                <thead>
+                                                                                    <tr style={{background:'#0D2E5A',color:'white'}}>
+                                                                                        <th style={{padding:'9px 12px',textAlign:'left',minWidth:'220px',
+                                                                                            position:'sticky',left:0,background:'#0D2E5A',zIndex:2,
+                                                                                            borderRight:'2px solid #374151'}}>Cost Item / Asset</th>
+                                                                                        <th style={{padding:'9px 8px',textAlign:'right',minWidth:'110px',
+                                                                                            background:'#0A2347',borderRight:'2px solid #4b5563'}}>Total</th>
+                                                                                        {Array.from({length:numP},(_,i)=>(
+                                                                                            <th key={i} style={{padding:'9px 7px',textAlign:'right',minWidth:'88px',
+                                                                                                borderLeft:'1px solid #374151'}}>{pLabel(i)}</th>
+                                                                                        ))}
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody>
+                                                                                    {lineData.map((line,ni)=>{
+                                                                                        const combDist = isDebt ? line.combDebt : line.combEq;
+                                                                                        const combTotal = isDebt ? line.totalDebt : line.totalEq;
+                                                                                        const subRows = visibleAssets.map(asset=>({
+                                                                                            asset,
+                                                                                            dist: isDebt ? line.assetDebt[asset] : line.assetEq[asset],
+                                                                                            total: (isDebt ? line.assetDebt[asset] : line.assetEq[asset])?.reduce((a,b)=>a+b,0)||0
+                                                                                        })).filter(r=>r.total>0);
+
+                                                                                        return (
+                                                                                            <React.Fragment key={line.name}>
+                                                                                                {/* Blue combined row */}
+                                                                                                <tr style={{background:'#E8F0FB',borderTop:'2px solid #a5b4fc'}}>
+                                                                                                    <td style={{padding:'9px 12px',fontWeight:700,color:'#1B4F8A',
+                                                                                                        position:'sticky',left:0,background:'#E8F0FB',zIndex:1,
+                                                                                                        borderRight:'2px solid #C5D8EF'}}>{line.name}</td>
+                                                                                                    <td style={{padding:'9px 8px',textAlign:'right',fontWeight:700,
+                                                                                                        color:'#1B4F8A',borderRight:'2px solid #C5D8EF'}}>
+                                                                                                        {combTotal>0?fN(combTotal):'—'}
+                                                                                                    </td>
+                                                                                                    {combDist.map((v,i)=>(
+                                                                                                        <td key={i} style={{padding:'9px 7px',textAlign:'right',
+                                                                                                            fontWeight:700,color:'#1B4F8A',
+                                                                                                            borderLeft:'1px solid #C5D8EF'}}>
+                                                                                                            {v>0?fN(v):'—'}
+                                                                                                        </td>
+                                                                                                    ))}
+                                                                                                </tr>
+                                                                                                {/* Asset sub-rows */}
+                                                                                                {subRows.map(({asset,dist,total})=>(
+                                                                                                    <tr key={asset} style={{background:ABGLIGHT[asset]}}>
+                                                                                                        <td style={{padding:'5px 12px 5px 26px',fontSize:'0.75rem',
+                                                                                                            fontWeight:500,color:ACOLOR[asset],
+                                                                                                            position:'sticky',left:0,background:ABGLIGHT[asset],zIndex:1,
+                                                                                                            borderRight:'2px solid #e5e7eb'}}>
+                                                                                                            ↳ {ALABEL[asset]}
+                                                                                                        </td>
+                                                                                                        <td style={{padding:'5px 8px',textAlign:'right',fontSize:'0.75rem',
+                                                                                                            fontWeight:600,color:ACOLOR[asset],
+                                                                                                            borderRight:'2px solid #e5e7eb'}}>
+                                                                                                            {fN(total)}
+                                                                                                        </td>
+                                                                                                        {dist.map((v,i)=>(
+                                                                                                            <td key={i} style={{padding:'5px 7px',textAlign:'right',
+                                                                                                                fontSize:'0.75rem',color:ACOLOR[asset],
+                                                                                                                borderLeft:'1px solid #e5e7eb'}}>
+                                                                                                                {v>0?fN(v):'—'}
+                                                                                                            </td>
+                                                                                                        ))}
+                                                                                                    </tr>
+                                                                                                ))}
+                                                                                            </React.Fragment>
+                                                                                        );
+                                                                                    })}
+                                                                                </tbody>
+                                                                                <tfoot>
+                                                                                    <tr style={{background:'#0D2E5A',color:'white',borderTop:'3px solid #2EAA4A'}}>
+                                                                                        <td style={{padding:'10px 12px',fontWeight:700,position:'sticky',
+                                                                                            left:0,background:'#0D2E5A',color:'white',
+                                                                                            borderRight:'2px solid #374151'}}>GRAND TOTAL</td>
+                                                                                        <td style={{padding:'10px 8px',textAlign:'right',fontWeight:700,
+                                                                                            borderRight:'2px solid #374151'}}>
+                                                                                            {fN(grandDist.reduce((a,b)=>a+b,0))}
+                                                                                        </td>
+                                                                                        {grandDist.map((v,i)=>(
+                                                                                            <td key={i} style={{padding:'10px 7px',textAlign:'right',
+                                                                                                fontWeight:700,borderLeft:'1px solid #374151'}}>
+                                                                                                {v>0?fN(v):'—'}
+                                                                                            </td>
+                                                                                        ))}
+                                                                                    </tr>
+                                                                                </tfoot>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            };
+
+                                                            // ── Asset summary table (Res/Hosp/Retail + Total rows) ──
+                                                            const SummaryByAsset = ({title, titleBg, isDebt}) => {
+                                                                const grandDist = isDebt ? grandDebt : grandEq;
+                                                                return (
+                                                                    <div className="mt-5">
+                                                                        <div className="px-4 py-2 rounded-lg font-bold text-sm inline-block mb-3" style={{background:titleBg,color:'white'}}>
+                                                                            {title}
+                                                                        </div>
+                                                                        <div className="overflow-x-auto rounded-xl border border-gray-200">
+                                                                            <table style={{borderCollapse:'collapse',fontSize:'0.78rem',width:'100%',
+                                                                                minWidth:Math.max(500,(numP+2)*95)+'px'}}>
+                                                                                <thead>
+                                                                                    <tr style={{background:'#0D2E5A',color:'white'}}>
+                                                                                        <th style={{padding:'9px 12px',textAlign:'left',minWidth:'180px',
+                                                                                            position:'sticky',left:0,background:'#0D2E5A',zIndex:2,
+                                                                                            borderRight:'2px solid #374151'}}>Asset</th>
+                                                                                        <th style={{padding:'9px 8px',textAlign:'right',minWidth:'110px',
+                                                                                            background:'#0A2347',borderRight:'2px solid #4b5563'}}>Total</th>
+                                                                                        {Array.from({length:numP},(_,i)=>(
+                                                                                            <th key={i} style={{padding:'9px 7px',textAlign:'right',minWidth:'88px',
+                                                                                                borderLeft:'1px solid #374151'}}>{pLabel(i)}</th>
+                                                                                        ))}
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody>
+                                                                                    {visibleAssets.map((asset,ai)=>{
+                                                                                        const dist = isDebt ? assetDebtTotals[asset] : assetEqTotals[asset];
+                                                                                        const total = dist.reduce((a,b)=>a+b,0);
+                                                                                        return (
+                                                                                            <tr key={asset} style={{background:ABGLIGHT[asset]}}>
+                                                                                                <td style={{padding:'8px 12px',fontWeight:600,color:ACOLOR[asset],
+                                                                                                    position:'sticky',left:0,background:ABGLIGHT[asset],zIndex:1,
+                                                                                                    borderRight:'2px solid #e5e7eb'}}>{ALABEL[asset]}</td>
+                                                                                                <td style={{padding:'8px 8px',textAlign:'right',fontWeight:700,
+                                                                                                    color:ACOLOR[asset],borderRight:'2px solid #e5e7eb'}}>{fN(total)}</td>
+                                                                                                {dist.map((v,i)=>(
+                                                                                                    <td key={i} style={{padding:'8px 7px',textAlign:'right',
+                                                                                                        color:ACOLOR[asset],borderLeft:'1px solid #e5e7eb'}}>
+                                                                                                        {v>0?fN(v):'—'}
+                                                                                                    </td>
+                                                                                                ))}
+                                                                                            </tr>
+                                                                                        );
+                                                                                    })}
+                                                                                </tbody>
+                                                                                <tfoot>
+                                                                                    <tr style={{background:'#0D2E5A',color:'white',borderTop:'3px solid #2EAA4A'}}>
+                                                                                        <td style={{padding:'10px 12px',fontWeight:700,position:'sticky',
+                                                                                            left:0,background:'#0D2E5A',color:'white',
+                                                                                            borderRight:'2px solid #374151'}}>TOTAL</td>
+                                                                                        <td style={{padding:'10px 8px',textAlign:'right',fontWeight:700,
+                                                                                            borderRight:'2px solid #374151'}}>
+                                                                                            {fN(grandDist.reduce((a,b)=>a+b,0))}
+                                                                                        </td>
+                                                                                        {grandDist.map((v,i)=>(
+                                                                                            <td key={i} style={{padding:'10px 7px',textAlign:'right',
+                                                                                                fontWeight:700,borderLeft:'1px solid #374151'}}>
+                                                                                                {v>0?fN(v):'—'}
+                                                                                            </td>
+                                                                                        ))}
+                                                                                    </tr>
+                                                                                </tfoot>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            };
+
+                                                            return (
+                                                                <>
+                                                                    {DrawdownTable({title:'🏦 Debt Drawdown by Period', titleBg:'#0D2E5A', isDebt:true})}
+                                                                    {SummaryByAsset({title:'🏦 Debt Summary by Asset', titleBg:'#7f1d1d', isDebt:true})}
+                                                                    {DrawdownTable({title:'💰 Equity Drawdown by Period', titleBg:'#2EAA4A', isDebt:false})}
+                                                                    {SummaryByAsset({title:'💰 Equity Summary by Asset', titleBg:'#14532d', isDebt:false})}
+                                                                </>
+                                                            );
+                                                        })()}
+
+                                                    </div>
+                                                );
+                                            }
+
+                                            // ════════════════════════════════════════
+                                            // TAB 2: DEBT, EQUITY & FINANCE COST SCHEDULES
+                                            // All 3 stacked, one per visible asset each
+                                            // ════════════════════════════════════════
+                                            if (activeFinView==='schedules') {
+                                                return (
+                                                    <div>
+
+                                                        {/* ════════════════════════════════════════════ */}
+                                                        {/* COMBINED PROJECT — all assets summed        */}
+                                                        {/* ════════════════════════════════════════════ */}
+                                                        {(()=>{
+                                                            const allPeriods = Array.from({length:totalPeriods+1},(_,p)=>p);
+
+                                                            // Sum across all visible assets
+                                                            const combDebtOpen  = allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.debtOpen[p]||0),0));
+                                                            const combDebtAdd   = allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.debtAdd[p]||0),0));
+                                                            const combDebtRep   = allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.debtRep[p]||0),0));
+                                                            const combDebtCapInt= allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(capitalizeInterest?(getFinForAsset(a)?.interest[p]||0):0),0));
+                                                            const combDebtClose = allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.debtClose[p]||0),0));
+
+                                                            const combEqOpen    = allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.eqOpen[p]||0),0));
+                                                            const combEqAdd     = allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.equityAdd[p]||0),0));
+                                                            const combEqClose   = allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.eqClose[p]||0),0));
+
+                                                            const combInt       = allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.interest[p]||0),0));
+                                                            const combIntPaid   = allPeriods.map(p=>visibleAssets.reduce((s,a)=>s+(p>constructionPeriods?(getFinForAsset(a)?.interest[p]||0):0),0));
+
+                                                            // Finance cost balance (combined)
+                                                            const combFCOpen  = Array(totalPeriods+1).fill(0);
+                                                            const combFCClose = Array(totalPeriods+1).fill(0);
+                                                            for(let p=0;p<=totalPeriods;p++){
+                                                                combFCOpen[p]  = p===0 ? 0 : combFCClose[p-1];
+                                                                combFCClose[p] = combFCOpen[p] + combInt[p] - combIntPaid[p];
+                                                            }
+
+                                                            const totalDebt    = visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.totalDebt||0),0);
+                                                            const totalEquity  = visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.totalEquity||0),0);
+                                                            const totalInterest= visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.totalInterest||0),0);
+                                                            const periodicRate = (interestRate/100)/(modelType==='monthly'?12:1);
+
+                                                            return (
+                                                                <div className="mb-10">
+                                                                    {/* Combined header */}
+                                                                    <div className="flex items-center gap-3 mb-4 pb-2" style={{borderBottom:'3px solid #2EAA4A'}}>
+                                                                        <h4 className="text-xl font-bold" style={{background:'linear-gradient(135deg,#1B4F8A,#2EAA4A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+                                                                            🌐 Full Project — Combined Schedule
+                                                                        </h4>
+                                                                        <div className="flex gap-3 text-xs">
+                                                                            {[['Total Debt',totalDebt,'#E8F0FB','#1B4F8A'],
+                                                                              ['Total Equity',totalEquity,'#E8F7EC','#2EAA4A'],
+                                                                              ['Total Finance Cost',totalInterest,'#6B7280','#F5F7FA']
+                                                                            ].map(([l,v,bg,c])=>(
+                                                                                <span key={l} className="px-3 py-1 rounded-full font-semibold" style={{background:bg,color:c}}>
+                                                                                    {l}: {currency} {formatNumber(v)}
+                                                                                </span>
                                                                             ))}
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {fin.lineItems.map((line, idx)=>(
-                                                                            <tr key={idx} style={{background: idx%2===0?'white':'#f9fafb'}}>
-                                                                                <td style={{padding:'7px 10px', fontWeight:500}}>{line.name}</td>
-                                                                                <td style={{padding:'7px 10px', textAlign:'right'}}>{currency} {formatNumber(line.total)}</td>
-                                                                                <td style={{padding:'7px 10px', textAlign:'center', fontWeight:700, color:'#dc2626'}}>{globalDebtPct}%</td>
-                                                                                <td style={{padding:'7px 10px', textAlign:'center', fontWeight:700, color:'#16a34a'}}>{(100-globalDebtPct).toFixed(1)}%</td>
-                                                                                <td style={{padding:'7px 10px', textAlign:'right', fontWeight:600, color:'#dc2626'}}>{currency} {formatNumber(line.debtAmt)}</td>
-                                                                                <td style={{padding:'7px 10px', textAlign:'right', fontWeight:600, color:'#16a34a'}}>{currency} {formatNumber(line.equityAmt)}</td>
-                                                                            </tr>
-                                                                        ))}
-                                                                    </tbody>
-                                                                    <tfoot>
-                                                                        <tr style={{background: color, color:'white'}}>
-                                                                            <td style={{padding:'9px 10px', fontWeight:700}}>TOTAL</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'right', fontWeight:700}}>{currency} {formatNumber(totalCost)}</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'center', fontWeight:700}}>{globalDebtPct}%</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'center', fontWeight:700}}>{(100-globalDebtPct).toFixed(1)}%</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'right', fontWeight:700}}>{currency} {formatNumber(fin.totalDebt)}</td>
-                                                                            <td style={{padding:'9px 10px', textAlign:'right', fontWeight:700}}>{currency} {formatNumber(fin.totalEquity)}</td>
-                                                                        </tr>
-                                                                    </tfoot>
-                                                                </table>
-                                                            </div>
-                                                        )}
+                                                                        </div>
+                                                                    </div>
 
-                                                        {/* Period-by-period split for this asset */}
-                                                        <h5 className="font-bold text-sm text-gray-700 mb-2">{ALABEL[asset]} — Period-by-Period Cost Split</h5>
-                                                        {SchedTable({rows:[
-                                                            {label:'Total Cost Incurred', style:'subtotal',
-                                                             data: periods.map(p => (p<=constructionPeriods ? (fin.debtAdd[p]||0)+(fin.equityAdd[p]||0) : 0))},
-                                                            {label:'  ↳ Debt Portion',   style:'addition',
-                                                             data: periods.map(p => p<=constructionPeriods ? (fin.debtAdd[p]||0) : 0)},
-                                                            {label:'  ↳ Equity Portion', style:'normal',
-                                                             data: periods.map(p => p<=constructionPeriods ? (fin.equityAdd[p]||0) : 0)},
-                                                        ]})}
-                                                    </div>
-                                                );
-                                            }
+                                                                    {/* Combined Debt Schedule */}
+                                                                    {SchedTable({
+                                                                        title:'🏦 Debt Schedule — Full Project',
+                                                                        titleColor:'white', titleBg:'#0D2E5A',
+                                                                        note: `Grace: ${constructionPeriods} ${modelType==='monthly'?'mo':'yr'} (construction) · ${repaymentMethod==='fixed'?`Fixed principal · ${Math.min(repaymentPeriods,operationsPeriods)} ${modelType==='monthly'?'mo':'yr'} repayment`:'Cash Sweep (Return Analysis)'} · ${capitalizeInterest?'Interest capitalized':'Interest expensed separately'}`,
+                                                                        rows:[
+                                                                            {label:'Opening Balance',          style:'normal',   isBalance:true, balanceTotal:0,
+                                                                             data:combDebtOpen},
+                                                                            {label:'(+) Drawdowns',            style:'addition',
+                                                                             data:combDebtAdd},
+                                                                            {label:'(+) Capitalized Interest', style:'addition',
+                                                                             data:combDebtCapInt},
+                                                                            {label:'(-) Repayment',            style:'deduction',
+                                                                             data:combDebtRep},
+                                                                            {label:'Closing Balance',          style:'total',    isBalance:true, balanceTotal:combDebtClose[totalPeriods]||0,
+                                                                             data:combDebtClose},
+                                                                        ]
+                                                                    })}
 
-                                            // ──────────────────────────────────────────────────────
-                                            // DEBT SCHEDULE VIEW
-                                            // ──────────────────────────────────────────────────────
-                                            if (activeFinView === 'debt') {
-                                                return (
-                                                    <div>
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-bold text-lg" style={{color}}>{ALABEL[asset]} — Debt Schedule</h4>
-                                                            <span className="text-sm px-3 py-1 rounded-full font-semibold" style={{background:'#fee2e2',color:'#dc2626'}}>
-                                                                Total Debt: {currency} {formatNumber(fin.totalDebt)}
-                                                            </span>
+                                                                    {/* Combined Equity Schedule */}
+                                                                    {SchedTable({
+                                                                        title:'💰 Equity Schedule — Full Project',
+                                                                        titleColor:'white', titleBg:'#2EAA4A',
+                                                                        note:'Equity drawn same period as costs incurred',
+                                                                        rows:[
+                                                                            {label:'Opening Balance',           style:'normal',   isBalance:true, balanceTotal:0,
+                                                                             data:combEqOpen},
+                                                                            {label:'(+) Equity Contributions',  style:'addition',
+                                                                             data:combEqAdd},
+                                                                            {label:'Closing Balance',           style:'total',    isBalance:true, balanceTotal:combEqClose[totalPeriods]||0,
+                                                                             data:combEqClose},
+                                                                        ]
+                                                                    })}
+
+                                                                    {/* Combined Finance Cost Schedule */}
+                                                                    {SchedTable({
+                                                                        title:'📈 Finance Cost Schedule — Full Project',
+                                                                        titleColor:'white', titleBg:'#6B7280',
+                                                                        note:`${interestRate}% p.a. → ${(periodicRate*100).toFixed(4)}% per ${modelType==='monthly'?'month':'year'} on Opening Debt Balance`,
+                                                                        rows:[
+                                                                            {label:'Opening Balance',        style:'normal',   isBalance:true, balanceTotal:0,
+                                                                             data:combFCOpen},
+                                                                            {label:'Charge for the Period',  style:'addition',
+                                                                             data:combInt},
+                                                                            {label:'(-) Paid During Period', style:'deduction',
+                                                                             data:combIntPaid},
+                                                                            {label:'Closing Balance',        style:'total',    isBalance:true, balanceTotal:combFCClose[totalPeriods]||0,
+                                                                             data:combFCClose},
+                                                                        ]
+                                                                    })}
+                                                                </div>
+                                                            );
+                                                        })()}
+
+                                                        {/* Divider */}
+                                                        <div className="flex items-center gap-3 my-8">
+                                                            <div className="flex-1 h-px bg-gray-300"></div>
+                                                            <span className="text-sm font-bold text-gray-500 px-3">PER ASSET SCHEDULES</span>
+                                                            <div className="flex-1 h-px bg-gray-300"></div>
                                                         </div>
-                                                        {SchedTable({
-                                                            note: capitalizeInterest
-                                                                ? '📦 Interest is capitalized — added to Closing Balance each period'
-                                                                : '💸 Interest is expensed separately — toggle above to capitalize',
-                                                            rows:[
-                                                                {label:'Opening Balance',            style:'normal',
-                                                                 data: periods.map(p=>fin.debtOpen[p]||0)},
-                                                                {label:'(+) Drawdowns',              style:'addition',
-                                                                 data: periods.map(p=>fin.debtAdd[p]||0)},
-                                                                {label:'(+) Capitalized Interest',   style:'addition',
-                                                                 data: periods.map(p=>capitalizeInterest?(fin.interest[p]||0):0)},
-                                                                {label:'(-) Repayment',              style:'deduction',
-                                                                 data: periods.map(p=>fin.debtRep[p]||0)},
-                                                                {label:'Closing Balance',            style:'total',
-                                                                 data: periods.map(p=>fin.debtClose[p]||0)},
-                                                            ]
-                                                        })}
-                                                        <p className="mt-2 text-xs text-gray-400">
-                                                            * Repayment begins {modelType==='monthly'?'Month':'Year'} {constructionPeriods+1} — straight-line over {operationsPeriods} {modelType==='monthly'?'months':'years'}
-                                                        </p>
-                                                    </div>
-                                                );
-                                            }
 
-                                            // ──────────────────────────────────────────────────────
-                                            // EQUITY SCHEDULE VIEW
-                                            // ──────────────────────────────────────────────────────
-                                            if (activeFinView === 'equity') {
-                                                return (
-                                                    <div>
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-bold text-lg" style={{color}}>{ALABEL[asset]} — Equity Schedule</h4>
-                                                            <span className="text-sm px-3 py-1 rounded-full font-semibold" style={{background:'#dcfce7',color:'#16a34a'}}>
-                                                                Total Equity: {currency} {formatNumber(fin.totalEquity)}
-                                                            </span>
-                                                        </div>
-                                                        {SchedTable({
-                                                            note:'✅ Equity contributions drawn in same period as costs are incurred',
-                                                            rows:[
-                                                                {label:'Opening Balance',        style:'normal',
-                                                                 data: periods.map(p=>fin.eqOpen[p]||0)},
-                                                                {label:'(+) Equity Contributions', style:'addition',
-                                                                 data: periods.map(p=>fin.equityAdd[p]||0)},
-                                                                {label:'Closing Balance',        style:'total',
-                                                                 data: periods.map(p=>fin.eqClose[p]||0)},
-                                                            ]
-                                                        })}
-                                                    </div>
-                                                );
-                                            }
+                                                        {visibleAssets.map(asset=>{
+                                                            const fin=getFinForAsset(asset);
+                                                            if(!fin) return null;
+                                                            const color=ACOLOR[asset];
+                                                            const label=ALABEL[asset];
+                                                            const assetPeriods=Array.from({length:totalPeriods+1},(_,p)=>p);
 
-                                            // ──────────────────────────────────────────────────────
-                                            // FINANCE COST SCHEDULE VIEW
-                                            // ──────────────────────────────────────────────────────
-                                            if (activeFinView === 'interest') {
-                                                const cumulative = [];
-                                                let runSum = 0;
-                                                periods.forEach(p => { runSum += (fin.interest[p]||0); cumulative.push(runSum); });
-                                                return (
-                                                    <div>
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <h4 className="font-bold text-lg" style={{color}}>{ALABEL[asset]} — Finance Cost Schedule</h4>
-                                                            <span className="text-sm px-3 py-1 rounded-full font-semibold" style={{background:'#fef3c7',color:'#d97706'}}>
-                                                                Total Finance Cost: {currency} {formatNumber(fin.totalInterest)}
-                                                            </span>
-                                                        </div>
-                                                        {SchedTable({
-                                                            note:`📐 Rate: ${interestRate}% p.a. → ${(fin.periodicRate*100).toFixed(4)}% per ${modelType==='monthly'?'month':'year'} | Calculated on Opening Debt Balance`,
-                                                            rows:[
-                                                                {label:'Opening Debt Balance',   style:'normal',
-                                                                 data: periods.map(p=>fin.debtOpen[p]||0)},
-                                                                {label:'Finance Cost (Interest)', style:'subtotal',
-                                                                 data: periods.map(p=>fin.interest[p]||0)},
-                                                                {label:'Cumulative Finance Cost', style:'total',
-                                                                 data: cumulative},
-                                                            ]
+                                                            // Finance cost paid during year:
+                                                            // During construction: 0 (capitalized or accrued, not paid)
+                                                            // During operations: same as charge (expensed as incurred)
+                                                            const finCostPaid=assetPeriods.map(p=>
+                                                                p>constructionPeriods ? (fin.interest[p]||0) : 0
+                                                            );
+                                                            // Finance cost closing balance (accrued unpaid)
+                                                            const finCostOpen=Array(totalPeriods+1).fill(0);
+                                                            const finCostClose=Array(totalPeriods+1).fill(0);
+                                                            for(let p=0;p<=totalPeriods;p++){
+                                                                finCostOpen[p]=p===0?0:finCostClose[p-1];
+                                                                finCostClose[p]=finCostOpen[p]+(fin.interest[p]||0)-finCostPaid[p];
+                                                            }
+
+                                                            return (
+                                                                <div key={asset} className="mb-10">
+                                                                    {/* Asset header */}
+                                                                    <div className="flex items-center gap-3 mb-4 pb-2" style={{borderBottom:`3px solid ${color}`}}>
+                                                                        <h4 className="text-xl font-bold" style={{color}}>{label}</h4>
+                                                                        <div className="flex gap-3 text-xs">
+                                                                            {[['Debt',fin.totalDebt,'#E8F0FB','#1B4F8A'],
+                                                                              ['Equity',fin.totalEquity,'#E8F7EC','#2EAA4A'],
+                                                                              ['Finance Cost',fin.totalInterest,'#6B7280','#F5F7FA']
+                                                                            ].map(([l,v,bg,c])=>(
+                                                                                <span key={l} className="px-3 py-1 rounded-full font-semibold" style={{background:bg,color:c}}>
+                                                                                    {l}: {currency} {formatNumber(v)}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* DEBT SCHEDULE */}
+                                                                    {SchedTable({
+                                                                        title:'🏦 Debt Schedule',
+                                                                        titleColor:'white', titleBg:'#0D2E5A',
+                                                                        note: `Grace: ${constructionPeriods} ${modelType==='monthly'?'mo':'yr'} (construction) · ${repaymentMethod==='fixed'?`Fixed principal · ${Math.min(repaymentPeriods,operationsPeriods)} ${modelType==='monthly'?'mo':'yr'} repayment`:'Cash Sweep (Return Analysis)'} · ${capitalizeInterest?'Interest capitalized':'Interest expensed separately'}`,
+                                                                        rows:[
+                                                                            {label:'Opening Balance', style:'normal', isBalance:true,
+                                                                             balanceTotal:0,
+                                                                             data:assetPeriods.map(p=>fin.debtOpen[p]||0)},
+                                                                            {label:'(+) Drawdowns', style:'addition',
+                                                                             data:assetPeriods.map(p=>fin.debtAdd[p]||0)},
+                                                                            {label:'(+) Capitalized Interest', style:'addition',
+                                                                             data:assetPeriods.map(p=>capitalizeInterest?(fin.interest[p]||0):0)},
+                                                                            {label:'(-) Repayment', style:'deduction',
+                                                                             data:assetPeriods.map(p=>fin.debtRep[p]||0)},
+                                                                            {label:'Closing Balance', style:'total', isBalance:true,
+                                                                             balanceTotal:fin.debtClose[totalPeriods]||0,
+                                                                             data:assetPeriods.map(p=>fin.debtClose[p]||0)},
+                                                                        ]
+                                                                    })}
+
+                                                                    {/* EQUITY SCHEDULE */}
+                                                                    {SchedTable({
+                                                                        title:'💰 Equity Schedule',
+                                                                        titleColor:'white', titleBg:'#2EAA4A',
+                                                                        note:'Equity drawn same period as costs incurred',
+                                                                        rows:[
+                                                                            {label:'Opening Balance', style:'normal', isBalance:true,
+                                                                             balanceTotal:0,
+                                                                             data:assetPeriods.map(p=>fin.eqOpen[p]||0)},
+                                                                            {label:'(+) Equity Contributions', style:'addition',
+                                                                             data:assetPeriods.map(p=>fin.equityAdd[p]||0)},
+                                                                            {label:'Closing Balance', style:'total', isBalance:true,
+                                                                             balanceTotal:fin.eqClose[totalPeriods]||0,
+                                                                             data:assetPeriods.map(p=>fin.eqClose[p]||0)},
+                                                                        ]
+                                                                    })}
+
+                                                                    {/* FINANCE COST SCHEDULE */}
+                                                                    {SchedTable({
+                                                                        title:'📈 Finance Cost Schedule',
+                                                                        titleColor:'white', titleBg:'#6B7280',
+                                                                        note:`${interestRate}% p.a. → ${(fin.periodicRate*100).toFixed(4)}% per ${modelType==='monthly'?'month':'year'} on Opening Debt Balance`,
+                                                                        rows:[
+                                                                            {label:'Opening Balance', style:'normal', isBalance:true,
+                                                                             balanceTotal:0,
+                                                                             data:assetPeriods.map(p=>finCostOpen[p]||0)},
+                                                                            {label:'Charge for the Period', style:'addition',
+                                                                             data:assetPeriods.map(p=>fin.interest[p]||0)},
+                                                                            {label:'(-) Paid During Period', style:'deduction',
+                                                                             data:assetPeriods.map(p=>finCostPaid[p]||0)},
+                                                                            {label:'Closing Balance', style:'total', isBalance:true,
+                                                                             balanceTotal:finCostClose[totalPeriods]||0,
+                                                                             data:assetPeriods.map(p=>finCostClose[p]||0)},
+                                                                        ]
+                                                                    })}
+                                                                </div>
+                                                            );
                                                         })}
                                                     </div>
                                                 );
@@ -3612,9 +4094,7 @@
                                         })()}
                                     </div>
                                 </div>
-                            )}
-
-                            </div>
+                            )}                            </div>
                         </div>
                     )}
 
