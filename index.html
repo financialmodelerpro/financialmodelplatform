@@ -8,6 +8,9 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -155,6 +158,119 @@
             font-weight: 700 !important;
             position: static !important;
             z-index: auto !important;
+        }
+
+        /* Project Manager Toolbar */
+        .pm-toolbar {
+            background: linear-gradient(135deg, #0D2E5A 0%, #1B4F8A 60%, #2EAA4A 100%);
+            border-bottom: 2px solid rgba(46,170,74,0.4);
+            padding: 0.6rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 200;
+        }
+        .pm-toolbar .pm-brand {
+            color: white;
+            font-weight: 800;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            margin-right: 0.5rem;
+            white-space: nowrap;
+        }
+        .pm-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.4rem 0.85rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .pm-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.25); }
+        .pm-btn.save    { background: #2EAA4A; color: white; }
+        .pm-btn.load    { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .pm-btn.new     { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.2); }
+        .pm-btn.import  { background: #1e88e5; color: white; }
+        .pm-btn.export-excel { background: #217346; color: white; }
+        .pm-btn.export-pdf   { background: #c0392b; color: white; }
+        .pm-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 0.25rem; }
+        .pm-project-name {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.78rem;
+            margin-left: auto;
+        }
+        .pm-project-name span { color: white; font-weight: 700; }
+
+        /* Modal overlay */
+        .pm-modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(3px);
+        }
+        .pm-modal {
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 540px;
+            max-width: 95vw;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .pm-modal-header {
+            background: linear-gradient(135deg, #0D2E5A, #1B4F8A);
+            color: white;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .pm-modal-body { padding: 1.25rem 1.5rem; overflow-y: auto; flex: 1; }
+        .pm-modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; display: flex; gap: 0.5rem; justify-content: flex-end; }
+        .pm-project-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.875rem 1rem;
+            margin-bottom: 0.6rem;
+            cursor: pointer;
+            transition: all 0.18s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .pm-project-card:hover { border-color: #1B4F8A; background: #f0f5ff; }
+        .pm-project-card.active-project { border-color: #2EAA4A; background: #f0faf3; }
+        .pm-toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background: #0D2E5A;
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            z-index: 99999;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -330,6 +446,7 @@
             const [hospitalityCosts, setHospitalityCosts] = useState([]);
             const [retailCosts, setRetailCosts] = useState([]);
             const [nextCostId, setNextCostId] = useState(13);
+            const [costInputMode, setCostInputMode] = useState('separate'); // 'same-for-all' | 'separate'
 
             // Initialize default residential costs
             useEffect(() => {
@@ -514,7 +631,7 @@
             // Determine which assets to show based on project type
             const showResidential = projectType === 'residential' || projectType === 'mixed-use';
             const showHospitality = projectType === 'hospitality' || projectType === 'mixed-use';
-            const showRetail = true; // Always show retail
+            const showRetail = retailPercent > 0; // Only show if retail has allocation
             
             // Area allocation validation - only count visible assets
             const totalAreaPercent = (showResidential ? residentialPercent : 0) + 
@@ -898,14 +1015,57 @@
                 }
             };
 
-            // ============ FINANCING CALCULATIONS ============
+            // ============ SAME-FOR-ALL COST MODE ============
+            // In same-for-all mode we use residentialCosts as master, 
+            // but the actual cost calculation scales automatically per asset since
+            // rate_* methods use the asset's own area, and percent_* uses asset land values.
+            // We still store separate copies in hosp/retail so that land line auto-updates work.
+            // When user switches to same-for-all, we copy res costs (excluding land) to hosp/retail
+            const syncSameForAllToAllAssets = (masterCosts) => {
+                // The land line (id=1, canDelete=false) stays asset-specific; replace rest
+                const nonLand = masterCosts.filter(c => c.canDelete !== false);
+                const copyForAsset = (prevCosts, assetType) => {
+                    const landLine = prevCosts.find(c => c.canDelete === false);
+                    return [...(landLine ? [landLine] : []), ...nonLand.map(c => ({...c}))];
+                };
+                if (showHospitality) setHospitalityCosts(prev => copyForAsset(prev, 'hospitality'));
+                if (showRetail)      setRetailCosts(prev => copyForAsset(prev, 'retail'));
+            };
+
+            // Switch mode handler
+            const handleCostInputModeChange = (newMode) => {
+                if (newMode === 'same-for-all') {
+                    // Sync current residential costs to all assets
+                    syncSameForAllToAllAssets(residentialCosts);
+                }
+                setCostInputMode(newMode);
+            };
+
+            // SAME-FOR-ALL CRUD (operates on residentialCosts master, syncs to others)
+            const addSameForAllCost = () => {
+                const newCost = { id: nextCostId, name: 'New Cost Item', method: 'fixed', value: 0, baseType: '', selectedIds: [], startPeriod: 1, endPeriod: constructionPeriods, phasing: 'even', canDelete: true };
+                const updated = [...residentialCosts, newCost];
+                setResidentialCosts(updated);
+                setNextCostId(nextCostId + 1);
+                syncSameForAllToAllAssets(updated);
+            };
+            const deleteSameForAllCost = (id) => {
+                const updated = residentialCosts.filter(c => c.id !== id);
+                setResidentialCosts(updated);
+                syncSameForAllToAllAssets(updated);
+            };
+            const updateSameForAllCost = (id, field, value) => {
+                const updated = residentialCosts.map(c => c.id === id ? {...c, [field]: value} : c);
+                setResidentialCosts(updated);
+                syncSameForAllToAllAssets(updated);
+            };
 
             // Build the combined line-item list (same logic as Combined Cost Summary table)
             const buildCombinedLines = () => {
                 const visibleAssets = [
                     ...(showResidential ? ['residential'] : []),
                     ...(showHospitality ? ['hospitality'] : []),
-                    'retail'
+                    ...(showRetail      ? ['retail']      : []),
                 ];
                 const costsMap = { residential: residentialCosts, hospitality: hospitalityCosts, retail: retailCosts };
                 const seen = new Set();
@@ -1010,12 +1170,1064 @@
             // Only compute for visible assets
             const finRes  = showResidential ? buildAssetFinancing('residential') : null;
             const finHosp = showHospitality ? buildAssetFinancing('hospitality')  : null;
-            const finRet  = buildAssetFinancing('retail');
+            const finRet  = showRetail      ? buildAssetFinancing('retail')       : null;
 
             const getFinForAsset = (a) => a === 'residential' ? finRes : a === 'hospitality' ? finHosp : finRet;
 
+            // ============ PROJECT MANAGER STATE & FUNCTIONS ============
+            const [pmModal, setPmModal] = useState(null); // null | 'open' | 'save'
+            const [pmProjectName, setPmProjectName] = useState('');
+            const [pmToast, setPmToast] = useState(null);
+            const [currentProjectId, setCurrentProjectId] = useState(null);
+
+            const showToast = (msg, color='#0D2E5A') => {
+                setPmToast({ msg, color });
+                setTimeout(() => setPmToast(null), 3000);
+            };
+
+            // Collect all state into a snapshot
+            const getSnapshot = () => ({
+                version: 1,
+                savedAt: new Date().toISOString(),
+                // Timeline
+                projectName, projectType, country, currency, modelType,
+                projectStart, constructionPeriods, operationsPeriods,
+                // Land & Area
+                cashPercent, inKindPercent, totalLandArea, landValuePerSqm,
+                residentialPercent, hospitalityPercent, retailPercent,
+                residentialRoadsPercent, hospitalityRoadsPercent, retailRoadsPercent,
+                residentialFAR, residentialEfficiency, residentialGFABase, residentialBUABase,
+                hospitalityFAR, hospitalityEfficiency, hospitalityGFABase, hospitalityBUABase,
+                retailFAR, retailEfficiency, retailGFABase, retailBUABase,
+                residentialMetrics, hospitalityMetrics, retailMetrics,
+                residentialCustomRows, hospitalityCustomRows, retailCustomRows,
+                // Financing
+                interestRate, financingMode, globalDebtPct, capitalizeInterest,
+                lineRatios, repaymentPeriods, repaymentMethod,
+                // Development Costs
+                residentialCosts, hospitalityCosts, retailCosts, nextCostId, costInputMode,
+            });
+
+            // Restore all state from snapshot
+            const applySnapshot = (snap) => {
+                setProjectName(snap.projectName); setProjectType(snap.projectType);
+                setCountry(snap.country); setCurrency(snap.currency);
+                setModelType(snap.modelType); setProjectStart(snap.projectStart);
+                setConstructionPeriods(snap.constructionPeriods); setOperationsPeriods(snap.operationsPeriods);
+                setCashPercent(snap.cashPercent); setInKindPercent(snap.inKindPercent);
+                setTotalLandArea(snap.totalLandArea); setLandValuePerSqm(snap.landValuePerSqm);
+                setResidentialPercent(snap.residentialPercent); setHospitalityPercent(snap.hospitalityPercent); setRetailPercent(snap.retailPercent);
+                setResidentialRoadsPercent(snap.residentialRoadsPercent); setHospitalityRoadsPercent(snap.hospitalityRoadsPercent); setRetailRoadsPercent(snap.retailRoadsPercent);
+                setResidentialFAR(snap.residentialFAR); setResidentialEfficiency(snap.residentialEfficiency);
+                setResidentialGFABase(snap.residentialGFABase); setResidentialBUABase(snap.residentialBUABase);
+                setHospitalityFAR(snap.hospitalityFAR); setHospitalityEfficiency(snap.hospitalityEfficiency);
+                setHospitalityGFABase(snap.hospitalityGFABase); setHospitalityBUABase(snap.hospitalityBUABase);
+                setRetailFAR(snap.retailFAR); setRetailEfficiency(snap.retailEfficiency);
+                setRetailGFABase(snap.retailGFABase); setRetailBUABase(snap.retailBUABase);
+                if (snap.residentialMetrics) setResidentialMetrics(snap.residentialMetrics);
+                if (snap.hospitalityMetrics) setHospitalityMetrics(snap.hospitalityMetrics);
+                if (snap.retailMetrics) setRetailMetrics(snap.retailMetrics);
+                if (snap.residentialCustomRows) setResidentialCustomRows(snap.residentialCustomRows);
+                if (snap.hospitalityCustomRows) setHospitalityCustomRows(snap.hospitalityCustomRows);
+                if (snap.retailCustomRows) setRetailCustomRows(snap.retailCustomRows);
+                setInterestRate(snap.interestRate); setFinancingMode(snap.financingMode);
+                setGlobalDebtPct(snap.globalDebtPct); setCapitalizeInterest(snap.capitalizeInterest);
+                setLineRatios(snap.lineRatios || {}); setRepaymentPeriods(snap.repaymentPeriods);
+                setRepaymentMethod(snap.repaymentMethod);
+                setResidentialCosts(snap.residentialCosts); setHospitalityCosts(snap.hospitalityCosts);
+                setRetailCosts(snap.retailCosts); setNextCostId(snap.nextCostId);
+                if (snap.costInputMode) setCostInputMode(snap.costInputMode);
+            };
+
+            // Get all saved projects from localStorage
+            const getSavedProjects = () => {
+                try {
+                    const raw = localStorage.getItem('refm_projects');
+                    return raw ? JSON.parse(raw) : [];
+                } catch(e) { return []; }
+            };
+
+            // Save project
+            const handleSaveProject = (nameOverride) => {
+                const name = nameOverride || pmProjectName || projectName || 'Untitled Project';
+                const projects = getSavedProjects();
+                const snap = getSnapshot();
+                const id = currentProjectId || ('proj_' + Date.now());
+                const idx = projects.findIndex(p => p.id === id);
+                const record = { id, name, savedAt: new Date().toISOString(), data: snap };
+                if (idx >= 0) projects[idx] = record; else projects.push(record);
+                localStorage.setItem('refm_projects', JSON.stringify(projects));
+                setCurrentProjectId(id);
+                setPmModal(null);
+                showToast('✅ Project "' + name + '" saved successfully!', '#0D7A3E');
+            };
+
+            // Load project
+            const handleLoadProject = (proj) => {
+                applySnapshot(proj.data);
+                setCurrentProjectId(proj.id);
+                setPmProjectName(proj.name);
+                setPmModal(null);
+                showToast('📂 Loaded "' + proj.name + '"', '#1B4F8A');
+            };
+
+            // Delete project
+            const handleDeleteProject = (id, e) => {
+                e.stopPropagation();
+                const projects = getSavedProjects().filter(p => p.id !== id);
+                localStorage.setItem('refm_projects', JSON.stringify(projects));
+                if (currentProjectId === id) setCurrentProjectId(null);
+                showToast('🗑️ Project deleted', '#6B7280');
+                setPmModal(prev => prev); // force re-render
+            };
+
+            // New project
+            const handleNewProject = () => {
+                if (!confirm('Start a new project? Unsaved changes will be lost.')) return;
+                window.location.reload();
+            };
+
+            // Import JSON
+            const handleImportJSON = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const snap = JSON.parse(ev.target.result);
+                        if (!snap.version) throw new Error('Invalid file');
+                        applySnapshot(snap);
+                        setCurrentProjectId(null);
+                        showToast('📥 Project imported successfully!', '#1B4F8A');
+                    } catch(err) {
+                        showToast('❌ Invalid project file', '#c0392b');
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            };
+
+            // Export JSON
+            const handleExportJSON = () => {
+                const snap = getSnapshot();
+                snap.projectName = projectName;
+                const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url;
+                a.download = (projectName || 'project') + '_REFM.json'; a.click();
+                URL.revokeObjectURL(url);
+                showToast('💾 Project exported as JSON', '#217346');
+            };
+
+            // Export Excel — fully formatted workbook
+            const handleExportExcel = () => {
+                if (!window.XLSX) { showToast('❌ XLSX library not loaded', '#c0392b'); return; }
+                const XLSX = window.XLSX;
+                const wb = XLSX.utils.book_new();
+
+                // ── Colour palette (ARGB hex, no #) ──────────────────────────
+                const C = {
+                    navyFill:   { patternType:'solid', fgColor:{rgb:'0D2E5A'} },
+                    navyText:   { color:{rgb:'FFFFFF'} },
+                    greenFill:  { patternType:'solid', fgColor:{rgb:'1B6E50'} },
+                    greenText:  { color:{rgb:'FFFFFF'} },
+                    subHdrFill: { patternType:'solid', fgColor:{rgb:'1B4F8A'} },
+                    subHdrText: { color:{rgb:'FFFFFF'} },
+                    yellowFill: { patternType:'solid', fgColor:{rgb:'FEF3C7'} },
+                    yellowText: { color:{rgb:'1B4F8A'} },
+                    altRow:     { patternType:'solid', fgColor:{rgb:'F0F5FF'} },
+                    totalFill:  { patternType:'solid', fgColor:{rgb:'E8F0FB'} },
+                    totalText:  { color:{rgb:'0D2E5A'} },
+                    constrFill: { patternType:'solid', fgColor:{rgb:'FFF9E6'} },
+                    opsFill:    { patternType:'solid', fgColor:{rgb:'E8F5FF'} },
+                    blankFill:  { patternType:'solid', fgColor:{rgb:'FFFFFF'} },
+                    debtFill:   { patternType:'solid', fgColor:{rgb:'EBF5FB'} },
+                    eqFill:     { patternType:'solid', fgColor:{rgb:'EAFAF1'} },
+                };
+
+                // ── Style builders ────────────────────────────────────────────
+                const mkStyle = (opts={}) => ({
+                    font:      { name:'Calibri', sz: opts.sz||10, bold:!!opts.bold, color: opts.color||{rgb:'000000'} },
+                    fill:      opts.fill || { patternType:'none' },
+                    alignment: { horizontal: opts.halign||'left', vertical:'center', wrapText:!!opts.wrap },
+                    border:    opts.noborder ? {} : { top:{style:'thin',color:{rgb:'D0D8E4'}}, bottom:{style:'thin',color:{rgb:'D0D8E4'}}, left:{style:'thin',color:{rgb:'D0D8E4'}}, right:{style:'thin',color:{rgb:'D0D8E4'}} },
+                    numFmt:    opts.numFmt||'General',
+                });
+
+                const hdrStyle   = mkStyle({ bold:true, sz:11, fill:C.navyFill,   color:C.navyText,   halign:'center' });
+                const subHdr     = mkStyle({ bold:true, sz:10, fill:C.subHdrFill, color:C.subHdrText, halign:'center' });
+                const greenHdr   = mkStyle({ bold:true, sz:10, fill:C.greenFill,  color:C.greenText,  halign:'center' });
+                const labelStyle = mkStyle({ bold:true, sz:10 });
+                const labelStyleR= mkStyle({ bold:true, sz:10, halign:'right' });
+                const inputStyle = mkStyle({ sz:10, fill:C.yellowFill, color:C.yellowText, halign:'right', numFmt:'#,##0.00' });
+                const inputStyleInt = mkStyle({ sz:10, fill:C.yellowFill, color:C.yellowText, halign:'right', numFmt:'#,##0' });
+                const numStyle   = mkStyle({ sz:10, halign:'right', numFmt:'#,##0' });
+                const numStyleDec= mkStyle({ sz:10, halign:'right', numFmt:'#,##0.00' });
+                const pctStyle   = mkStyle({ sz:10, halign:'right', numFmt:'0.0%' });
+                const totalStyle = mkStyle({ bold:true, sz:10, fill:C.totalFill, color:C.totalText, halign:'right', numFmt:'#,##0' });
+                const totalLStyle= mkStyle({ bold:true, sz:10, fill:C.totalFill, color:C.totalText });
+                const navyTotalR = mkStyle({ bold:true, sz:10, fill:C.navyFill, color:C.navyText, halign:'right', numFmt:'#,##0' });
+                const navyTotalL = mkStyle({ bold:true, sz:10, fill:C.navyFill, color:C.navyText });
+                const textStyle  = mkStyle({ sz:10 });
+                const textCStyle = mkStyle({ sz:10, halign:'center' });
+                const altStyle   = mkStyle({ sz:10, fill:C.altRow, halign:'right', numFmt:'#,##0' });
+                const altLStyle  = mkStyle({ sz:10, fill:C.altRow });
+                const constrHdr  = mkStyle({ bold:true, sz:8, fill:C.constrFill, halign:'center', numFmt:'#,##0' });
+                const opsHdr     = mkStyle({ bold:true, sz:8, fill:C.opsFill,    halign:'center', numFmt:'#,##0' });
+                const constrNum  = mkStyle({ sz:8, fill:C.constrFill, halign:'right', numFmt:'#,##0' });
+                const opsNum     = mkStyle({ sz:8, fill:C.opsFill,    halign:'right', numFmt:'#,##0' });
+                const constrAlt  = mkStyle({ sz:8, fill:{patternType:'solid',fgColor:{rgb:'FFF2CC'}}, halign:'right', numFmt:'#,##0' });
+                const opsAlt     = mkStyle({ sz:8, fill:{patternType:'solid',fgColor:{rgb:'DAE8FC'}}, halign:'right', numFmt:'#,##0' });
+
+                // ── Helper: apply styles to a sheet ──────────────────────────
+                const applyStyle = (ws, r, c, style) => {
+                    const addr = XLSX.utils.encode_cell({r,c});
+                    if (!ws[addr]) ws[addr] = { v:'', t:'s' };
+                    ws[addr].s = style;
+                };
+
+                // ── Helper: write a cell with value + style ───────────────────
+                const writeCell = (ws, r, c, value, style) => {
+                    const addr = XLSX.utils.encode_cell({r,c});
+                    const isNum = typeof value === 'number';
+                    ws[addr] = { v:value, t: isNum?'n':'s', s:style };
+                    return ws;
+                };
+
+                // ── Helper: set column widths ─────────────────────────────────
+                const setColWidths = (ws, widths) => { ws['!cols'] = widths.map(w=>({wch:w})); };
+
+                // ── Helper: merge cells ───────────────────────────────────────
+                const mergeCells = (ws, s_r, s_c, e_r, e_c) => {
+                    if (!ws['!merges']) ws['!merges'] = [];
+                    ws['!merges'].push({s:{r:s_r,c:s_c},e:{r:e_r,c:e_c}});
+                };
+
+                const fmtPctRaw = (v) => Number(v||0) / 100; // for pctStyle cells
+                const totalPeriods = constructionPeriods + operationsPeriods;
+
+                // ════════════════════════════════════════════════════════════════
+                // SHEET 1: INPUTS — Project Details, Land & Area, Dev Costs, Financing
+                // ════════════════════════════════════════════════════════════════
+                const ws1 = {};
+                let r = 0;
+
+                // — Title row —
+                writeCell(ws1, r,0, '🏗️  REAL ESTATE FINANCIAL MODELING PLATFORM', hdrStyle);
+                writeCell(ws1, r,1, '', hdrStyle); writeCell(ws1, r,2,'',hdrStyle); writeCell(ws1, r,3,'',hdrStyle);
+                mergeCells(ws1, r, 0, r, 6);
+                r++;
+                writeCell(ws1, r,0, 'Module 1: Project Setup & Financial Structure   |   ' + projectName, subHdr);
+                mergeCells(ws1, r, 0, r, 6); r+=2;
+
+                // — Section: PROJECT TIMELINE —
+                writeCell(ws1, r,0, 'PROJECT TIMELINE', hdrStyle); mergeCells(ws1,r,0,r,6); r++;
+                writeCell(ws1, r,0,'Field',subHdr); writeCell(ws1,r,1,'Input Value',subHdr); writeCell(ws1,r,2,'Notes',subHdr); mergeCells(ws1,r,2,r,6); r++;
+                const timelineRows = [
+                    ['Project Name', projectName,''],
+                    ['Project Type', projectType,'residential | hospitality | mixed-use'],
+                    ['Country', country,''],
+                    ['Currency', currency,''],
+                    ['Model Type', modelType,'monthly | annual'],
+                    ['Start Date', projectStart,''],
+                    ['Construction Duration', constructionPeriods, modelType==='monthly'?'months':'years'],
+                    ['Operations Duration', operationsPeriods, modelType==='monthly'?'months':'years'],
+                    ['Total Horizon', constructionPeriods+operationsPeriods, modelType==='monthly'?'months':'years'],
+                    ['Project End Date', projectEndDate,'Auto-calculated'],
+                ];
+                timelineRows.forEach((row,i) => {
+                    const alt = i%2===0;
+                    writeCell(ws1,r,0,row[0], alt?labelStyle:mkStyle({bold:true,sz:10,fill:C.altRow}));
+                    const isNum = typeof row[1]==='number';
+                    writeCell(ws1,r,1,row[1], alt?inputStyle:mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'EBF5FF'}},color:C.yellowText,halign:'right',numFmt:isNum?'#,##0':'General'}));
+                    writeCell(ws1,r,2,row[2],alt?textStyle:altLStyle);
+                    mergeCells(ws1,r,2,r,6);
+                    r++;
+                });
+                r++;
+
+                // — Section: LAND & AREA —
+                writeCell(ws1,r,0,'LAND & AREA', hdrStyle); mergeCells(ws1,r,0,r,6); r++;
+                writeCell(ws1,r,0,'Parameter',subHdr); writeCell(ws1,r,1,'Input',subHdr); writeCell(ws1,r,2,'Calculated Value',subHdr); writeCell(ws1,r,3,'',subHdr); writeCell(ws1,r,4,'',subHdr); mergeCells(ws1,r,2,r,6); r++;
+                const landRows = [
+                    ['Total Land Area (sqm)', totalLandArea, totalLandArea.toLocaleString() + ' sqm'],
+                    ['Land Value per sqm', landValuePerSqm, currency + ' ' + landValuePerSqm.toLocaleString()],
+                    ['Total Land Value', totalLandArea*landValuePerSqm, currency + ' ' + Math.round(totalLandArea*landValuePerSqm).toLocaleString()],
+                    ['Cash Land %', cashPercent, currency + ' ' + Math.round(totalLandArea*landValuePerSqm*cashPercent/100).toLocaleString()],
+                    ['In-Kind Land %', inKindPercent, currency + ' ' + Math.round(totalLandArea*landValuePerSqm*inKindPercent/100).toLocaleString()],
+                ];
+                landRows.forEach((row,i) => {
+                    const alt=i%2===0;
+                    writeCell(ws1,r,0,row[0],alt?labelStyle:mkStyle({bold:true,sz:10,fill:C.altRow}));
+                    writeCell(ws1,r,1,row[1],alt?inputStyleInt:mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'EBF5FF'}},color:C.yellowText,halign:'right',numFmt:'#,##0'}));
+                    writeCell(ws1,r,2,row[2],alt?textStyle:altLStyle); mergeCells(ws1,r,2,r,6); r++;
+                });
+                r++;
+
+                // Area allocation sub-table
+                writeCell(ws1,r,0,'AREA ALLOCATION BY ASSET',greenHdr); mergeCells(ws1,r,0,r,9); r++;
+                const areaHdrs = ['Asset','Alloc %','Total Area (sqm)','Roads %','Roads Area','Net Dev. Area','FAR','GFA (sqm)','BUA (sqm)','Land Value'];
+                areaHdrs.forEach((h,c) => writeCell(ws1,r,c,h,subHdr)); r++;
+                const assetAreaRows = [];
+                if(showResidential) assetAreaRows.push(['Residential',residentialPercent/100,residentialTotalArea,residentialRoadsPercent/100,residentialRoadsArea,residentialNetArea,residentialFAR,residentialGFA,residentialBUA,residentialLandValue]);
+                if(showHospitality) assetAreaRows.push(['Hospitality',hospitalityPercent/100,hospitalityTotalArea,hospitalityRoadsPercent/100,hospitalityRoadsArea,hospitalityNetArea,hospitalityFAR,hospitalityGFA,hospitalityBUA,hospitalityLandValue]);
+                if(showRetail)      assetAreaRows.push(['Retail',retailPercent/100,retailTotalArea,retailRoadsPercent/100,retailRoadsArea,retailNetArea,retailFAR,retailGFA,retailBUA,retailLandValue]);
+                assetAreaRows.forEach((row,i)=>{
+                    const alt=i%2===0;
+                    const bg = alt ? {} : C.altRow;
+                    writeCell(ws1,r,0,row[0],alt?labelStyle:altLStyle);
+                    writeCell(ws1,r,1,row[1],alt?pctStyle:mkStyle({sz:10,fill:C.altRow,halign:'right',numFmt:'0.0%'}));
+                    [2,4,5,7,8,9].forEach(c=>writeCell(ws1,r,c,row[c],alt?numStyle:altStyle));
+                    [3].forEach(c=>writeCell(ws1,r,c,row[c],alt?pctStyle:mkStyle({sz:10,fill:C.altRow,halign:'right',numFmt:'0.0%'})));
+                    writeCell(ws1,r,6,row[6],alt?numStyleDec:mkStyle({sz:10,fill:C.altRow,halign:'right',numFmt:'#,##0.00'}));
+                    r++;
+                });
+                r+=2;
+
+                // — Section: DEVELOPMENT COSTS —
+                writeCell(ws1,r,0,'DEVELOPMENT COSTS', hdrStyle); mergeCells(ws1,r,0,r,6); r++;
+                writeCell(ws1,r,0,'Mode: '+(costInputMode==='same-for-all'?'SAME FOR ALL ASSETS':'SEPARATE PER ASSET'), mkStyle({bold:true,sz:10,fill:{patternType:'solid',fgColor:{rgb:'E8F5E9'}},color:{rgb:'1B6E50'}}));
+                mergeCells(ws1,r,0,r,6); r++;
+
+                const costCols = ['Cost Item','Method','Input Value','Total Cost','Start Period','End Period','Phasing'];
+                const renderCostSheet = (costs, assetType, label) => {
+                    writeCell(ws1,r,0,label + ' DEVELOPMENT COSTS', greenHdr); mergeCells(ws1,r,0,r,6); r++;
+                    costCols.forEach((h,c)=>writeCell(ws1,r,c,h,subHdr)); r++;
+                    const grandTotal = costs.reduce((s,c)=>s+calculateItemTotal(c,assetType),0);
+                    costs.forEach((cost,i)=>{
+                        const total=calculateItemTotal(cost,assetType);
+                        const alt=i%2===0;
+                        writeCell(ws1,r,0,cost.name,alt?labelStyle:altLStyle);
+                        writeCell(ws1,r,1,cost.method,alt?textCStyle:mkStyle({sz:10,fill:C.altRow,halign:'center'}));
+                        writeCell(ws1,r,2,cost.value,alt?inputStyleInt:mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'EBF5FF'}},color:C.yellowText,halign:'right',numFmt:'#,##0'}));
+                        writeCell(ws1,r,3,total,alt?numStyle:altStyle);
+                        writeCell(ws1,r,4,cost.startPeriod,alt?textCStyle:mkStyle({sz:10,fill:C.altRow,halign:'center'}));
+                        writeCell(ws1,r,5,cost.endPeriod,alt?textCStyle:mkStyle({sz:10,fill:C.altRow,halign:'center'}));
+                        writeCell(ws1,r,6,getPhasingMode(cost)==='even'?'Even':getPhasingValues(cost).join(','),alt?textStyle:altLStyle);
+                        r++;
+                    });
+                    writeCell(ws1,r,0,'TOTAL '+label,navyTotalL); writeCell(ws1,r,3,grandTotal,navyTotalR);
+                    [1,2,4,5,6].forEach(c=>writeCell(ws1,r,c,'',navyTotalL)); mergeCells(ws1,r,0,r,2); r+=2;
+                };
+
+                if(showResidential || costInputMode==='same-for-all') renderCostSheet(residentialCosts,'residential', costInputMode==='same-for-all'?'ALL ASSETS (SHARED)':'Residential');
+                if(costInputMode==='separate') {
+                    if(showHospitality) renderCostSheet(hospitalityCosts,'hospitality','Hospitality');
+                    if(showRetail)      renderCostSheet(retailCosts,'retail','Retail');
+                }
+                r++;
+
+                // — Section: FINANCING ASSUMPTIONS —
+                writeCell(ws1,r,0,'FINANCING ASSUMPTIONS', hdrStyle); mergeCells(ws1,r,0,r,6); r++;
+                writeCell(ws1,r,0,'Parameter',subHdr); writeCell(ws1,r,1,'Value',subHdr); writeCell(ws1,r,2,'Notes',subHdr); mergeCells(ws1,r,2,r,6); r++;
+                const finAssRows = [
+                    ['Interest Rate (% p.a.)', interestRate, 'Annual rate, converted to periodic rate for '+modelType+' model'],
+                    ['Financing Mode', financingMode==='fixed'?'Fixed Global Ratio':'Per Line Item', ''],
+                    ['Global Debt %', globalDebtPct, 'Applies to all lines in fixed mode'],
+                    ['Global Equity %', 100-globalDebtPct, 'Complement of debt'],
+                    ['Capitalize Interest', capitalizeInterest?'Yes':'No', 'If Yes: interest added to debt balance each period'],
+                    ['Repayment Method', repaymentMethod==='fixed'?'Fixed Instalments':'Cash Sweep', ''],
+                    ['Repayment Periods', repaymentPeriods, modelType==='monthly'?'months':'years'],
+                    ['Grace Period', constructionPeriods, 'No repayment during construction ('+constructionPeriods+' '+( modelType==='monthly'?'months':'years')+')'],
+                ];
+                finAssRows.forEach((row,i)=>{
+                    const alt=i%2===0;
+                    writeCell(ws1,r,0,row[0],alt?labelStyle:mkStyle({bold:true,sz:10,fill:C.altRow}));
+                    const isNum=typeof row[1]==='number';
+                    writeCell(ws1,r,1,row[1],alt?inputStyle:mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'EBF5FF'}},color:C.yellowText,halign:'right',numFmt:isNum?'#,##0.00':'General'}));
+                    writeCell(ws1,r,2,row[2],alt?textStyle:altLStyle); mergeCells(ws1,r,2,r,6); r++;
+                });
+
+                ws1['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:r+5,c:9}});
+                setColWidths(ws1, [32,18,20,18,18,18,18,18,18,20]);
+                ws1['!rows'] = [{hpt:22},{hpt:18}];
+                XLSX.utils.book_append_sheet(wb, ws1, '📋 Inputs');
+
+                // ════════════════════════════════════════════════════════════════
+                // SHEET 2: OUTPUTS — Dev Cost Schedule + Financing Schedule
+                // ════════════════════════════════════════════════════════════════
+                const ws2 = {};
+                r = 0;
+                const maxPer = Math.min(totalPeriods, 36); // show up to 36 periods
+                const periodLabels = Array.from({length:totalPeriods+1},(_,p)=>
+                    p <= constructionPeriods ? (modelType==='monthly'?'M':'Y')+p : (modelType==='monthly'?'M':'Y')+p
+                );
+                const getPStyle = (p, alt) => p <= constructionPeriods
+                    ? (alt?constrAlt:constrNum) : (alt?opsAlt:opsNum);
+                const getPHdrStyle = (p) => p <= constructionPeriods ? constrHdr : opsHdr;
+
+                // Title
+                writeCell(ws2,r,0,'📊  REAL ESTATE FINANCIAL MODELING — OUTPUT SCHEDULES', hdrStyle);
+                for(let c=1;c<=maxPer+1;c++) writeCell(ws2,r,c,'',hdrStyle);
+                mergeCells(ws2,r,0,r,maxPer+1); r++;
+                writeCell(ws2,r,0,'Project: '+projectName+'  |  '+constructionPeriods+' '+(modelType==='monthly'?'months':'years')+' Construction  +  '+operationsPeriods+' Operations', subHdr);
+                for(let c=1;c<=maxPer+1;c++) writeCell(ws2,r,c,'',subHdr);
+                mergeCells(ws2,r,0,r,maxPer+1); r+=2;
+
+                // ── Dev Cost Schedule per asset ───────────────────────────────
+                const renderOutputCosts = (costs, assetType, label) => {
+                    writeCell(ws2,r,0,label+' — DEVELOPMENT COST SCHEDULE ('+currency+')', greenHdr);
+                    for(let c=1;c<=maxPer+1;c++) writeCell(ws2,r,c,'',greenHdr);
+                    mergeCells(ws2,r,0,r,maxPer+1); r++;
+
+                    // Period header row
+                    writeCell(ws2,r,0,'Cost Item',subHdr);
+                    writeCell(ws2,r,1,'Total',subHdr);
+                    for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) writeCell(ws2,r,p+2,periodLabels[p],getPHdrStyle(p));
+                    r++;
+
+                    // Construction/Ops phase labels
+                    writeCell(ws2,r,0,'Phase',labelStyle); writeCell(ws2,r,1,'',labelStyle);
+                    for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) {
+                        const isC = p <= constructionPeriods;
+                        writeCell(ws2,r,p+2,isC?'Construction':'Operations', isC?constrHdr:opsHdr);
+                    }
+                    r++;
+
+                    const grandTotal2 = costs.reduce((s,c)=>s+calculateItemTotal(c,assetType),0);
+                    costs.forEach((cost,i)=>{
+                        const total2=calculateItemTotal(cost,assetType);
+                        const dist=distributeCost(cost,assetType);
+                        const alt=i%2===0;
+                        writeCell(ws2,r,0,cost.name,alt?labelStyle:altLStyle);
+                        writeCell(ws2,r,1,total2,alt?numStyle:altStyle);
+                        for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) {
+                            const v=dist[p]||0;
+                            writeCell(ws2,r,p+2,v>0?v:0,getPStyle(p,!alt));
+                        }
+                        r++;
+                    });
+
+                    // Total row
+                    const periodTotals=Array(totalPeriods+1).fill(0);
+                    costs.forEach(c=>{ const d=distributeCost(c,assetType); d.forEach((v,p)=>{if(p<=totalPeriods)periodTotals[p]+=v;}); });
+                    writeCell(ws2,r,0,'TOTAL '+label.toUpperCase(),navyTotalL);
+                    writeCell(ws2,r,1,grandTotal2,navyTotalR);
+                    for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) writeCell(ws2,r,p+2,periodTotals[p]||0,navyTotalR);
+                    r+=2;
+                };
+
+                if(showResidential) renderOutputCosts(residentialCosts,'residential','Residential');
+                if(showHospitality) renderOutputCosts(hospitalityCosts,'hospitality','Hospitality');
+                if(showRetail)      renderOutputCosts(retailCosts,'retail','Retail');
+
+                // ── Combined Cost Summary ─────────────────────────────────────
+                const visAssets=[...(showResidential?['residential']:[]),...(showHospitality?['hospitality']:[]),...(showRetail?['retail']:[])];
+                const costsMap={residential:residentialCosts,hospitality:hospitalityCosts,retail:retailCosts};
+                const seen=new Set(); const names=[];
+                visAssets.forEach(a=>costsMap[a].forEach(c=>{if(!seen.has(c.name)){seen.add(c.name);names.push(c.name);}}));
+                writeCell(ws2,r,0,'COMBINED DEVELOPMENT COST SUMMARY (ALL ASSETS)',greenHdr);
+                for(let c=1;c<=maxPer+1;c++) writeCell(ws2,r,c,'',greenHdr);
+                mergeCells(ws2,r,0,r,maxPer+1); r++;
+                writeCell(ws2,r,0,'Cost Item',subHdr); writeCell(ws2,r,1,'Total',subHdr);
+                for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) writeCell(ws2,r,p+2,periodLabels[p],getPHdrStyle(p));
+                r++;
+                const combGrand=Array(totalPeriods+1).fill(0);
+                names.forEach((name,i)=>{
+                    const dist=Array(totalPeriods+1).fill(0);
+                    visAssets.forEach(a=>{const c=costsMap[a].find(x=>x.name===name);if(!c)return;const d=distributeCost(c,a);d.forEach((v,p)=>{if(p<=totalPeriods){dist[p]+=v;combGrand[p]+=v;}});});
+                    const total3=dist.reduce((a,b)=>a+b,0);
+                    const alt=i%2===0;
+                    writeCell(ws2,r,0,name,alt?labelStyle:altLStyle);
+                    writeCell(ws2,r,1,total3,alt?numStyle:altStyle);
+                    for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) writeCell(ws2,r,p+2,dist[p]||0,getPStyle(p,!alt));
+                    r++;
+                });
+                const combGrandTotal=combGrand.reduce((a,b)=>a+b,0);
+                writeCell(ws2,r,0,'TOTAL ALL ASSETS',navyTotalL); writeCell(ws2,r,1,combGrandTotal,navyTotalR);
+                for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) writeCell(ws2,r,p+2,combGrand[p]||0,navyTotalR);
+                r+=2;
+
+                // ── Financing Schedules ───────────────────────────────────────
+                const finAssets=[...(showResidential?[['Residential',finRes]]:[]),...(showHospitality?[['Hospitality',finHosp]]:[]),...(showRetail?[['Retail',finRet]]:[])];
+                finAssets.forEach(([assetLabel,fin])=>{
+                    if(!fin) return;
+                    writeCell(ws2,r,0,assetLabel.toUpperCase()+' — FINANCING SCHEDULE ('+currency+')',mkStyle({bold:true,sz:11,fill:C.navyFill,color:C.navyText,halign:'center'}));
+                    for(let c=1;c<=maxPer+1;c++) writeCell(ws2,r,c,'',mkStyle({fill:C.navyFill,color:C.navyText}));
+                    mergeCells(ws2,r,0,r,maxPer+1); r++;
+
+                    // Summary: line items
+                    writeCell(ws2,r,0,'LINE ITEM DETAIL',greenHdr); writeCell(ws2,r,1,'Total Cost',greenHdr);
+                    writeCell(ws2,r,2,'Debt %',greenHdr); writeCell(ws2,r,3,'Debt Amt',greenHdr); writeCell(ws2,r,4,'Equity Amt',greenHdr);
+                    for(let c=5;c<=maxPer+1;c++) writeCell(ws2,r,c,'',greenHdr);
+                    r++;
+                    fin.lineItems.forEach((li,i)=>{
+                        const alt=i%2===0;
+                        writeCell(ws2,r,0,li.name,alt?labelStyle:altLStyle);
+                        writeCell(ws2,r,1,li.total,alt?numStyle:altStyle);
+                        writeCell(ws2,r,2,li.debtPct/100,alt?pctStyle:mkStyle({sz:10,fill:C.altRow,halign:'right',numFmt:'0.0%'}));
+                        writeCell(ws2,r,3,li.debtAmt,alt?mkStyle({sz:10,halign:'right',numFmt:'#,##0',fill:C.debtFill}):mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'D6EAF8'}},halign:'right',numFmt:'#,##0'}));
+                        writeCell(ws2,r,4,li.equityAmt,alt?mkStyle({sz:10,halign:'right',numFmt:'#,##0',fill:C.eqFill}):mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'D5F5E3'}},halign:'right',numFmt:'#,##0'}));
+                        for(let c=5;c<=maxPer+1;c++) writeCell(ws2,r,c,'',alt?textStyle:altLStyle);
+                        r++;
+                    });
+                    writeCell(ws2,r,0,'TOTAL',navyTotalL); writeCell(ws2,r,1,fin.totalDebt+fin.totalEquity,navyTotalR);
+                    writeCell(ws2,r,2,(globalDebtPct/100),mkStyle({bold:true,sz:10,fill:C.navyFill,color:C.navyText,halign:'right',numFmt:'0.0%'}));
+                    writeCell(ws2,r,3,fin.totalDebt,navyTotalR); writeCell(ws2,r,4,fin.totalEquity,navyTotalR);
+                    for(let c=5;c<=maxPer+1;c++) writeCell(ws2,r,c,'',navyTotalL);
+                    r+=2;
+
+                    // Period schedule header
+                    writeCell(ws2,r,0,'PERIOD-BY-PERIOD SCHEDULE',greenHdr); writeCell(ws2,r,1,'Total',greenHdr);
+                    for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) writeCell(ws2,r,p+2,periodLabels[p],getPHdrStyle(p));
+                    r++;
+                    writeCell(ws2,r,0,'Phase',labelStyle); writeCell(ws2,r,1,'',labelStyle);
+                    for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) writeCell(ws2,r,p+2,p<=constructionPeriods?'Construction':'Operations',getPHdrStyle(p));
+                    r++;
+
+                    const finRows2=[
+                        ['Debt Drawdown',fin.debtAdd,mkStyle({sz:10,fill:C.debtFill}),mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'D6EAF8'}},halign:'right',numFmt:'#,##0'})],
+                        ['Debt Opening Balance',fin.debtOpen,mkStyle({sz:10}),mkStyle({sz:10,halign:'right',numFmt:'#,##0'})],
+                        ['Interest Charge',fin.interest,mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'FADBD8'}}}),mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'F9EBEA'}},halign:'right',numFmt:'#,##0'})],
+                        ['Debt Repayment',fin.debtRep,mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'FCF3CF'}}}),mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'FEF9E7'}},halign:'right',numFmt:'#,##0'})],
+                        ['Debt Closing Balance',fin.debtClose,mkStyle({bold:true,sz:10,fill:C.debtFill}),mkStyle({bold:true,sz:10,fill:{patternType:'solid',fgColor:{rgb:'D6EAF8'}},halign:'right',numFmt:'#,##0'})],
+                        ['Equity Injection',fin.equityAdd,mkStyle({sz:10,fill:C.eqFill}),mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'D5F5E3'}},halign:'right',numFmt:'#,##0'})],
+                        ['Equity Closing Balance',fin.eqClose,mkStyle({bold:true,sz:10,fill:C.eqFill}),mkStyle({bold:true,sz:10,fill:{patternType:'solid',fgColor:{rgb:'D5F5E3'}},halign:'right',numFmt:'#,##0'})],
+                    ];
+                    finRows2.forEach(([label,arr,lstyle,numSt])=>{
+                        const rowTotal=arr.reduce((a,b)=>a+b,0);
+                        writeCell(ws2,r,0,label,lstyle);
+                        writeCell(ws2,r,1,rowTotal,{...numSt,s:{...numSt,font:{...numSt.font,bold:true}}});
+                        for(let p=0;p<=Math.min(totalPeriods,maxPer-1);p++) writeCell(ws2,r,p+2,arr[p]||0,numSt);
+                        r++;
+                    });
+                    r+=2;
+                });
+
+                // Financing summary table at end
+                writeCell(ws2,r,0,'FINANCING SUMMARY — ALL ASSETS',hdrStyle); mergeCells(ws2,r,0,r,7); r++;
+                ['Asset','Total Cost','Debt %','Total Debt','Total Equity','Interest','Total incl. Interest'].forEach((h,c)=>writeCell(ws2,r,c,h,subHdr)); r++;
+                let gC=0,gD=0,gE=0,gI=0;
+                finAssets.forEach(([al,fin],i)=>{
+                    if(!fin) return;
+                    const tc=fin.totalDebt+fin.totalEquity; gC+=tc; gD+=fin.totalDebt; gE+=fin.totalEquity; gI+=fin.totalInterest;
+                    const alt=i%2===0;
+                    writeCell(ws2,r,0,al,alt?labelStyle:altLStyle);
+                    writeCell(ws2,r,1,tc,alt?numStyle:altStyle);
+                    writeCell(ws2,r,2,globalDebtPct/100,alt?pctStyle:mkStyle({sz:10,fill:C.altRow,halign:'right',numFmt:'0.0%'}));
+                    writeCell(ws2,r,3,fin.totalDebt,alt?mkStyle({sz:10,halign:'right',numFmt:'#,##0',fill:C.debtFill}):mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'D6EAF8'}},halign:'right',numFmt:'#,##0'}));
+                    writeCell(ws2,r,4,fin.totalEquity,alt?mkStyle({sz:10,halign:'right',numFmt:'#,##0',fill:C.eqFill}):mkStyle({sz:10,fill:{patternType:'solid',fgColor:{rgb:'D5F5E3'}},halign:'right',numFmt:'#,##0'}));
+                    writeCell(ws2,r,5,fin.totalInterest,alt?numStyle:altStyle);
+                    writeCell(ws2,r,6,tc+fin.totalInterest,alt?numStyle:altStyle);
+                    r++;
+                });
+                writeCell(ws2,r,0,'TOTAL',navyTotalL); writeCell(ws2,r,1,gC,navyTotalR); writeCell(ws2,r,2,'',navyTotalL);
+                writeCell(ws2,r,3,gD,navyTotalR); writeCell(ws2,r,4,gE,navyTotalR); writeCell(ws2,r,5,gI,navyTotalR); writeCell(ws2,r,6,gC+gI,navyTotalR);
+                r+=2;
+
+                ws2['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:r+5,c:maxPer+2}});
+                const colWidths2=[30,14,...Array(maxPer).fill(10)];
+                setColWidths(ws2, colWidths2);
+                XLSX.utils.book_append_sheet(wb, ws2, '📊 Outputs');
+
+                XLSX.writeFile(wb, (projectName || 'REFM_Project') + '_Model.xlsx');
+                showToast('📊 Excel model exported — 2 formatted sheets!', '#217346');
+            };
+
+            // Export PDF
+            const handleExportPDF = () => {
+                const { jsPDF } = window.jspdf;
+                if (!jsPDF) { showToast('❌ jsPDF not loaded', '#c0392b'); return; }
+
+                const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+                if (!doc.autoTable) { showToast('❌ autoTable plugin not loaded', '#c0392b'); return; }
+                const PW = 297; // page width landscape
+                const ML = 10; // margin left
+                const MR = 10; // margin right
+                const CW = PW - ML - MR; // content width
+                const HEADER_H = 22;
+                const FOOTER_H = 8;
+                const PAGE_H = 210;
+                const CONTENT_TOP = HEADER_H + 4;
+                const CONTENT_BOTTOM = PAGE_H - FOOTER_H - 4;
+
+                const fmtN = (v, dec=0) => Number(v||0).toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+                const fmtC = (v) => currency + ' ' + fmtN(v);
+                const fmtP = (v) => Number(v||0).toFixed(1) + '%';
+                const periodLabel = modelType==='monthly' ? 'months' : 'years';
+
+                // ── Page header / footer helpers ──────────────────────────────
+                const drawPageHeader = (title, subtitle) => {
+                    // Navy gradient band
+                    doc.setFillColor(13, 46, 90);
+                    doc.rect(0, 0, PW, HEADER_H, 'F');
+                    doc.setFillColor(27, 110, 80);
+                    doc.rect(PW-50, 0, 50, HEADER_H, 'F');
+                    // Title
+                    doc.setTextColor(255,255,255);
+                    doc.setFontSize(13); doc.setFont('helvetica','bold');
+                    doc.text('REFM Platform — ' + projectName, ML, 9);
+                    doc.setFontSize(8); doc.setFont('helvetica','normal');
+                    doc.text(subtitle || title, ML, 15.5);
+                    // Tab label pill
+                    doc.setFontSize(9); doc.setFont('helvetica','bold');
+                    doc.text(title, PW - 48, 9);
+                    doc.setFontSize(7); doc.setFont('helvetica','normal');
+                    doc.text('Generated: ' + new Date().toLocaleDateString(), PW - 48, 15.5);
+                    doc.setTextColor(0,0,0);
+                };
+
+                const drawPageFooter = (pageNum, total) => {
+                    doc.setFillColor(240,244,248);
+                    doc.rect(0, PAGE_H - FOOTER_H, PW, FOOTER_H, 'F');
+                    doc.setFontSize(6.5); doc.setTextColor(100,100,100); doc.setFont('helvetica','normal');
+                    doc.text('Real Estate Financial Modeling Platform — Module 1: Project Setup & Financial Structure', ML, PAGE_H - 2.5);
+                    doc.text('Page ' + pageNum + ' of ' + total + '   |   Confidential', PW - ML, PAGE_H - 2.5, {align:'right'});
+                    doc.setTextColor(0,0,0);
+                };
+
+                const sectionTitle = (y, text) => {
+                    doc.setFillColor(27, 79, 138);
+                    doc.rect(ML, y, CW, 6.5, 'F');
+                    doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
+                    doc.text(text, ML+3, y+4.5);
+                    doc.setTextColor(0,0,0);
+                    return y + 9;
+                };
+
+                // autoTable default styles
+                const tblDef = (startY, head, body, colStyles={}, opts={}) => {
+                    doc.autoTable({
+                        startY,
+                        head,
+                        body,
+                        margin: {left: ML, right: MR},
+                        styles: { fontSize: 7.5, cellPadding: 1.8, lineColor:[200,210,220], lineWidth:0.2 },
+                        headStyles: { fillColor:[13,46,90], textColor:255, fontStyle:'bold', fontSize:7.5 },
+                        alternateRowStyles: { fillColor:[245,248,252] },
+                        columnStyles: colStyles,
+                        tableWidth: CW,
+                        ...opts
+                    });
+                    return doc.lastAutoTable.finalY + 4;
+                };
+
+                // ════════════════════════════════════════════
+                //  PAGE 1 — TAB 1: TIMELINE / PROJECT SETUP
+                // ════════════════════════════════════════════
+                drawPageHeader('Tab 1: Timeline', 'Project Setup & Timeline Configuration');
+                let y = CONTENT_TOP;
+                y = sectionTitle(y, 'PROJECT INFORMATION');
+                y = tblDef(y,
+                    [['Parameter','Value','Parameter','Value']],
+                    [
+                        ['Project Name', projectName, 'Project Type', projectType],
+                        ['Country', country, 'Currency', currency],
+                        ['Model Type', modelType + ' model', 'Start Date', projectStart],
+                        ['Construction Duration', constructionPeriods + ' ' + periodLabel, 'Operations Duration', operationsPeriods + ' ' + periodLabel],
+                        ['Total Model Horizon', (constructionPeriods + operationsPeriods) + ' ' + periodLabel, 'Active Assets', [showResidential?'Residential':'', showHospitality?'Hospitality':'', showRetail?'Retail':''].filter(Boolean).join(', ')],
+                    ],
+                    {0:{cellWidth:50,fontStyle:'bold'}, 1:{cellWidth:75}, 2:{cellWidth:50,fontStyle:'bold'}, 3:{cellWidth:CW-50-75-50}}
+                );
+
+                y = sectionTitle(y+2, 'CONSTRUCTION TIMELINE OVERVIEW');
+                // Build period columns header
+                const totalPer = constructionPeriods + operationsPeriods;
+                const maxCols = Math.min(totalPer, 20);
+                const periodHeaders = ['Phase / Item'];
+                for(let p=1; p<=maxCols; p++) periodHeaders.push(p <= constructionPeriods ? 'C' + p : 'O' + (p-constructionPeriods));
+                if(totalPer > maxCols) periodHeaders.push('...');
+
+                const timelineBody = [];
+                const phaseRow = ['Phase'];
+                for(let p=1;p<=maxCols;p++) phaseRow.push(p<=constructionPeriods?'Construction':'Operations');
+                if(totalPer>maxCols) phaseRow.push('');
+                timelineBody.push(phaseRow);
+
+                const perRow = ['Period #'];
+                for(let p=1;p<=maxCols;p++) perRow.push(String(p));
+                if(totalPer>maxCols) perRow.push('...');
+                timelineBody.push(perRow);
+
+                const colSt = {0:{cellWidth:35,fontStyle:'bold'}};
+                const perColW = (CW-35) / (periodHeaders.length-1);
+                for(let i=1;i<periodHeaders.length;i++) colSt[i]={cellWidth:perColW, halign:'center', fontSize:6};
+                y = tblDef(y, [periodHeaders], timelineBody, colSt, {
+                    didParseCell: (data) => {
+                        if(data.row.index===0 && data.column.index>=1) {
+                            const p = data.column.index;
+                            if(p <= constructionPeriods) { data.cell.styles.fillColor=[255,243,205]; data.cell.styles.textColor=[120,80,0]; }
+                            else { data.cell.styles.fillColor=[209,236,241]; data.cell.styles.textColor=[0,80,120]; }
+                        }
+                    }
+                });
+
+                // ════════════════════════════════════════════
+                //  PAGE 2 — TAB 2: LAND & AREA
+                // ════════════════════════════════════════════
+                doc.addPage();
+                drawPageHeader('Tab 2: Land & Area', 'Land Allocation, Area Metrics & GFA/BUA Calculations');
+                y = CONTENT_TOP;
+
+                y = sectionTitle(y, 'LAND SUMMARY');
+                y = tblDef(y,
+                    [['Metric','Value','Metric','Value']],
+                    [
+                        ['Total Land Area', fmtN(totalLandArea) + ' sqm', 'Land Value / sqm', fmtC(landValuePerSqm)],
+                        ['Total Land Value', fmtC(totalLandArea*landValuePerSqm), 'Cash Land %', fmtP(cashPercent)],
+                        ['Cash Land Value', fmtC(totalLandArea*landValuePerSqm*cashPercent/100), 'In-Kind Land %', fmtP(inKindPercent)],
+                        ['In-Kind Land Value', fmtC(totalLandArea*landValuePerSqm*inKindPercent/100), '', ''],
+                    ],
+                    {0:{cellWidth:55,fontStyle:'bold'},1:{cellWidth:75},2:{cellWidth:55,fontStyle:'bold'},3:{cellWidth:CW-185}}
+                );
+
+                y = sectionTitle(y+2, 'AREA ALLOCATION BY ASSET');
+                const assetAllocHead = [['Asset','Alloc %','Total Area (sqm)','Roads %','Roads Area (sqm)','Net Dev Area (sqm)','FAR','GFA Base','GFA (sqm)','Efficiency %','BUA Base','BUA (sqm)','Land Value']];
+                const assetAllocBody = [];
+                if(showResidential) assetAllocBody.push([
+                    'Residential', fmtP(residentialPercent),
+                    fmtN(residentialTotalArea), fmtP(residentialRoadsPercent), fmtN(residentialRoadsArea), fmtN(residentialNetArea),
+                    residentialFAR, residentialGFABase, fmtN(residentialGFA),
+                    fmtP(residentialEfficiency*100||residentialEfficiency), residentialBUABase, fmtN(residentialBUA),
+                    fmtC(residentialLandValue)
+                ]);
+                if(showHospitality) assetAllocBody.push([
+                    'Hospitality', fmtP(hospitalityPercent),
+                    fmtN(hospitalityTotalArea), fmtP(hospitalityRoadsPercent), fmtN(hospitalityRoadsArea), fmtN(hospitalityNetArea),
+                    hospitalityFAR, hospitalityGFABase, fmtN(hospitalityGFA),
+                    fmtP(hospitalityEfficiency*100||hospitalityEfficiency), hospitalityBUABase, fmtN(hospitalityBUA),
+                    fmtC(hospitalityLandValue)
+                ]);
+                assetAllocBody.push([
+                    'Retail', fmtP(retailPercent),
+                    fmtN(retailTotalArea), fmtP(retailRoadsPercent), fmtN(retailRoadsArea), fmtN(retailNetArea),
+                    retailFAR, retailGFABase, fmtN(retailGFA),
+                    fmtP(retailEfficiency*100||retailEfficiency), retailBUABase, fmtN(retailBUA),
+                    fmtC(retailLandValue)
+                ]);
+                y = tblDef(y, assetAllocHead, assetAllocBody, {
+                    0:{cellWidth:24,fontStyle:'bold'},
+                    1:{cellWidth:14,halign:'right'},2:{cellWidth:24,halign:'right'},
+                    3:{cellWidth:14,halign:'right'},4:{cellWidth:26,halign:'right'},5:{cellWidth:26,halign:'right'},
+                    6:{cellWidth:10,halign:'right'},7:{cellWidth:16,halign:'center'},8:{cellWidth:22,halign:'right'},
+                    9:{cellWidth:20,halign:'right'},10:{cellWidth:16,halign:'center'},11:{cellWidth:22,halign:'right'},
+                    12:{cellWidth:CW-234,halign:'right'}
+                });
+
+                // ════════════════════════════════════════════
+                //  PAGE 3 — TAB 3: DEVELOPMENT COSTS
+                // ════════════════════════════════════════════
+                doc.addPage();
+                drawPageHeader('Tab 3: Development Costs', 'Cost Line Items, Phasing & Totals by Asset Class');
+                y = CONTENT_TOP;
+
+                const assetsForCosts = [
+                    ...(showResidential ? [['Residential', residentialCosts, 'residential']] : []),
+                    ...(showHospitality ? [['Hospitality', hospitalityCosts, 'hospitality']] : []),
+                    ...(showRetail      ? [['Retail',       retailCosts,      'retail']]      : []),
+                ];
+
+                for(const [assetLabel, costs, assetType] of assetsForCosts) {
+                    const grandTotal = costs.reduce((s,c)=>s+calculateItemTotal(c,assetType),0);
+                    y = sectionTitle(y, assetLabel.toUpperCase() + ' DEVELOPMENT COSTS — Total: ' + fmtC(grandTotal));
+
+                    // Cost summary table
+                    const totalPeriods2 = constructionPeriods + operationsPeriods;
+                    const maxP = Math.min(totalPeriods2, 15);
+                    const costHead = ['#','Cost Item','Method','Value','Periods','Total (' + currency + ')'];
+                    for(let p=1;p<=maxP;p++) costHead.push(p <= constructionPeriods ? 'C'+p : 'O'+(p-constructionPeriods));
+                    if(totalPeriods2>maxP) costHead.push('...');
+
+                    const costBody = costs.map((c, idx) => {
+                        const total = calculateItemTotal(c, assetType);
+                        const dist = distributeCost(c, assetType);
+                        const row = [
+                            idx+1, c.name,
+                            c.method === 'lumpsum' ? 'Lump Sum' : c.method === 'per_sqm' ? 'Per sqm' : c.method === 'rate_bua' ? 'Rate×BUA' : c.method,
+                            fmtN(c.value, 2), c.periods || 1,
+                            fmtN(total)
+                        ];
+                        for(let p=0;p<maxP;p++) row.push(dist[p+1]>0 ? fmtN(dist[p+1]) : '—');
+                        if(totalPeriods2>maxP) row.push('...');
+                        return row;
+                    });
+                    // Totals row
+                    const totRow = ['', 'TOTAL', '', '', '', fmtN(grandTotal)];
+                    const distTotals = Array(maxP).fill(0);
+                    costs.forEach(c => { const d=distributeCost(c,assetType); for(let p=0;p<maxP;p++) distTotals[p]+=(d[p+1]||0); });
+                    distTotals.forEach(v => totRow.push(v>0?fmtN(v):'—'));
+                    if(totalPeriods2>maxP) totRow.push('...');
+                    costBody.push(totRow);
+
+                    const costColSt = {0:{cellWidth:6,halign:'center'},1:{cellWidth:40,fontStyle:'bold'},2:{cellWidth:18,halign:'center'},3:{cellWidth:18,halign:'right'},4:{cellWidth:14,halign:'center'},5:{cellWidth:22,halign:'right',fontStyle:'bold'}};
+                    const baseW = 6+40+18+18+14+22;
+                    const remW = CW - baseW;
+                    const perW = maxP > 0 ? remW / (maxP + (totalPeriods2>maxP?1:0)) : remW;
+                    for(let i=6; i<6+maxP+(totalPeriods2>maxP?1:0); i++) costColSt[i]={cellWidth:perW,halign:'right',fontSize:6};
+
+                    y = tblDef(y, [costHead], costBody, costColSt, {
+                        didParseCell: (data) => {
+                            if(data.row.index === costs.length) {
+                                data.cell.styles.fillColor = [13,46,90];
+                                data.cell.styles.textColor = 255;
+                                data.cell.styles.fontStyle = 'bold';
+                            }
+                        }
+                    });
+
+                    if(y > CONTENT_BOTTOM - 20 && assetLabel !== 'Retail') {
+                        doc.addPage();
+                        drawPageHeader('Tab 3: Development Costs (cont.)', 'Cost Line Items, Phasing & Totals by Asset Class');
+                        y = CONTENT_TOP;
+                    } else {
+                        y += 4;
+                    }
+                }
+
+                // ════════════════════════════════════════════
+                //  PAGE 4 — TAB 4: FINANCING
+                // ════════════════════════════════════════════
+                doc.addPage();
+                drawPageHeader('Tab 4: Financing', 'Debt/Equity Structure, Repayment Schedule & Period-by-Period Balances');
+                y = CONTENT_TOP;
+
+                y = sectionTitle(y, 'FINANCING ASSUMPTIONS');
+                y = tblDef(y,
+                    [['Parameter','Value','Parameter','Value']],
+                    [
+                        ['Interest Rate', interestRate + '% p.a.', 'Financing Mode', financingMode==='fixed'?'Fixed Global Ratio':'Per Line Item'],
+                        ['Global Debt %', fmtP(globalDebtPct), 'Global Equity %', fmtP(100-globalDebtPct)],
+                        ['Repayment Method', repaymentMethod==='fixed'?'Fixed Instalments':'Cash Sweep', 'Repayment Periods', repaymentPeriods + ' ' + periodLabel],
+                        ['Capitalize Interest', capitalizeInterest?'Yes — interest added to debt balance':'No — interest expensed each period', 'Grace Period', 'Entire construction phase (' + constructionPeriods + ' ' + periodLabel + ')'],
+                    ],
+                    {0:{cellWidth:50,fontStyle:'bold'},1:{cellWidth:80},2:{cellWidth:50,fontStyle:'bold'},3:{cellWidth:CW-180}}
+                );
+
+                y = sectionTitle(y+2, 'FINANCING SUMMARY BY ASSET');
+                const finSumHead = [['Asset','Cost Items','Total Cost (' + currency + ')','Debt %','Total Debt (' + currency + ')','Total Equity (' + currency + ')','Interest (' + currency + ')','Total Inc. Interest (' + currency + ')']];
+                const finSumBody = [];
+                let grandD=0,grandE=0,grandI=0,grandC=0;
+                [['Residential',finRes],['Hospitality',finHosp],['Retail',finRet]].forEach(([a,f])=>{
+                    if(!f) return;
+                    const tc = f.totalDebt + f.totalEquity;
+                    grandC+=tc; grandD+=f.totalDebt; grandE+=f.totalEquity; grandI+=f.totalInterest;
+                    finSumBody.push([a, f.lineItems.length, fmtN(tc), fmtP(globalDebtPct), fmtN(f.totalDebt), fmtN(f.totalEquity), fmtN(f.totalInterest), fmtN(tc+f.totalInterest)]);
+                });
+                finSumBody.push(['TOTAL','',fmtN(grandC),'',fmtN(grandD),fmtN(grandE),fmtN(grandI),fmtN(grandC+grandI)]);
+                y = tblDef(y, finSumHead, finSumBody,
+                    {0:{cellWidth:28,fontStyle:'bold'},1:{cellWidth:20,halign:'center'},2:{cellWidth:34,halign:'right'},3:{cellWidth:18,halign:'right'},4:{cellWidth:34,halign:'right'},5:{cellWidth:34,halign:'right'},6:{cellWidth:34,halign:'right'},7:{cellWidth:CW-202,halign:'right'}},
+                    {
+                        didParseCell: (data) => {
+                            if(data.row.index === finSumBody.length - 1) {
+                                data.cell.styles.fillColor = [13,46,90];
+                                data.cell.styles.textColor = 255;
+                                data.cell.styles.fontStyle = 'bold';
+                            }
+                        }
+                    }
+                );
+
+                // Line item detail per asset
+                [['Residential',finRes,'residential'],['Hospitality',finHosp,'hospitality'],['Retail',finRet,'retail']].forEach(([a,f,at])=>{
+                    if(!f) return;
+                    y = sectionTitle(y+2, a.toUpperCase() + ' — LINE ITEM FINANCING DETAIL');
+                    const liHead = [['Cost Item','Total Cost','Debt %','Debt Amount','Equity Amount']];
+                    const liBody = f.lineItems.map(l=>[l.name, fmtN(l.total), fmtP(l.debtPct), fmtN(l.debtAmt), fmtN(l.equityAmt)]);
+                    liBody.push(['TOTAL', fmtN(f.totalDebt+f.totalEquity), fmtP(globalDebtPct), fmtN(f.totalDebt), fmtN(f.totalEquity)]);
+                    y = tblDef(y, liHead, liBody,
+                        {0:{cellWidth:CW-4*30-4,fontStyle:'bold'},1:{cellWidth:30,halign:'right'},2:{cellWidth:30,halign:'right'},3:{cellWidth:30,halign:'right'},4:{cellWidth:30,halign:'right'}},
+                        {
+                            didParseCell: (data) => {
+                                if(data.row.index === f.lineItems.length) {
+                                    data.cell.styles.fillColor = [27,79,138];
+                                    data.cell.styles.textColor = 255;
+                                    data.cell.styles.fontStyle = 'bold';
+                                }
+                            }
+                        }
+                    );
+                });
+
+                // Period-by-period schedule (new page)
+                doc.addPage();
+                drawPageHeader('Tab 4: Financing (cont.)', 'Period-by-Period Debt, Equity & Interest Schedule');
+                y = CONTENT_TOP;
+
+                [['Residential',finRes],['Hospitality',finHosp],['Retail',finRet]].forEach(([a,f])=>{
+                    if(!f) return;
+                    const totalP = f.totalPeriods;
+                    const maxDisplay = Math.min(totalP, 18);
+                    y = sectionTitle(y, a.toUpperCase() + ' — PERIOD SCHEDULE (' + totalP + ' ' + periodLabel + ' total; showing first ' + maxDisplay + ')');
+                    const schHead = ['Metric'];
+                    for(let p=0;p<maxDisplay;p++) schHead.push(p < constructionPeriods ? 'C'+(p+1) : 'O'+(p-constructionPeriods+1));
+                    if(totalP>maxDisplay) schHead.push('...');
+
+                    const mkRow = (label, arr) => {
+                        const r = [label];
+                        for(let p=0;p<maxDisplay;p++) r.push(arr[p]!==undefined?fmtN(arr[p]):'—');
+                        if(totalP>maxDisplay) r.push('...');
+                        return r;
+                    };
+
+                    const schBody = [
+                        mkRow('Debt Drawdown', f.debtAdd),
+                        mkRow('Debt Opening Bal.', f.debtOpen),
+                        mkRow('Interest', f.interest),
+                        mkRow('Debt Repayment', f.debtRep),
+                        mkRow('Debt Closing Bal.', f.debtClose),
+                        mkRow('Equity Injection', f.equityAdd),
+                        mkRow('Equity Closing Bal.', f.eqClose),
+                    ];
+
+                    const schColSt = {0:{cellWidth:34,fontStyle:'bold'}};
+                    const colW = (CW-34-( totalP>maxDisplay?8:0 )) / maxDisplay;
+                    for(let i=1;i<=maxDisplay;i++) schColSt[i]={cellWidth:colW,halign:'right',fontSize:6.5};
+                    if(totalP>maxDisplay) schColSt[maxDisplay+1]={cellWidth:8,halign:'center',fontSize:6};
+
+                    y = tblDef(y, [schHead], schBody, schColSt, {
+                        didParseCell: (data) => {
+                            // Shade construction vs operations columns
+                            if(data.row.section==='head' || data.column.index===0) return;
+                            const p = data.column.index - 1;
+                            if(p < constructionPeriods) {
+                                data.cell.styles.fillColor = data.row.index%2===0 ? [255,248,220] : [255,243,200];
+                            } else {
+                                data.cell.styles.fillColor = data.row.index%2===0 ? [220,240,255] : [210,234,253];
+                            }
+                        }
+                    });
+
+                    y += 4;
+                    if(y > CONTENT_BOTTOM - 30) {
+                        doc.addPage();
+                        drawPageHeader('Tab 4: Financing (cont.)', 'Period-by-Period Debt, Equity & Interest Schedule');
+                        y = CONTENT_TOP;
+                    }
+                });
+
+                // ════════════════════════════════════════════
+                //  FOOTERS on all pages
+                // ════════════════════════════════════════════
+                const pageCount = doc.internal.getNumberOfPages();
+                for(let i=1; i<=pageCount; i++){
+                    doc.setPage(i);
+                    drawPageFooter(i, pageCount);
+                }
+
+                doc.save((projectName || 'REFM_Project') + '_Full_Report.pdf');
+                showToast('📄 PDF exported — ' + pageCount + ' pages', '#c0392b');
+            };
+
             return (
                 <div className="min-h-screen">
+                    {/* ===== PROJECT MANAGER TOOLBAR ===== */}
+                    <div className="pm-toolbar">
+                        <span className="pm-brand">🏗️ REFM Platform</span>
+                        <div className="pm-divider"></div>
+                        <button className="pm-btn save" onClick={() => {
+                            if (currentProjectId) { handleSaveProject(pmProjectName || projectName); }
+                            else { setPmProjectName(projectName); setPmModal('save'); }
+                        }}>
+                            💾 Save
+                        </button>
+                        <button className="pm-btn save" style={{background:'#1B8A3A'}} onClick={() => { setPmProjectName(projectName); setPmModal('save'); }}>
+                            ＋ Save As
+                        </button>
+                        <button className="pm-btn load" onClick={() => setPmModal('open')}>
+                            📂 Open Project
+                        </button>
+                        <button className="pm-btn new" onClick={handleNewProject}>
+                            📋 New Project
+                        </button>
+                        <div className="pm-divider"></div>
+                        <label className="pm-btn import" style={{cursor:'pointer'}}>
+                            📥 Import
+                            <input type="file" accept=".json" style={{display:'none'}} onChange={handleImportJSON} />
+                        </label>
+                        <button className="pm-btn" style={{background:'rgba(255,255,255,0.12)',color:'white',border:'1px solid rgba(255,255,255,0.25)'}} onClick={handleExportJSON}>
+                            📤 Export JSON
+                        </button>
+                        <button className="pm-btn export-excel" onClick={handleExportExcel}>
+                            📊 Excel
+                        </button>
+                        <button className="pm-btn export-pdf" onClick={handleExportPDF}>
+                            📄 PDF
+                        </button>
+                        <div className="pm-project-name">
+                            {currentProjectId ? <span>Saved: {pmProjectName || projectName}</span> : <span style={{color:'rgba(255,255,255,0.5)'}}>Not saved yet</span>}
+                        </div>
+                    </div>
+
+                    {/* ===== SAVE AS MODAL ===== */}
+                    {pmModal === 'save' && (
+                        <div className="pm-modal-overlay" onClick={() => setPmModal(null)}>
+                            <div className="pm-modal" onClick={e => e.stopPropagation()}>
+                                <div className="pm-modal-header">
+                                    <span style={{fontWeight:700, fontSize:'1rem'}}>💾 Save Project</span>
+                                    <button onClick={() => setPmModal(null)} style={{background:'none',border:'none',color:'white',cursor:'pointer',fontSize:'1.2rem'}}>✕</button>
+                                </div>
+                                <div className="pm-modal-body">
+                                    <label style={{display:'block',fontSize:'0.85rem',fontWeight:600,color:'#374151',marginBottom:'0.5rem'}}>Project Name</label>
+                                    <input
+                                        type="text"
+                                        value={pmProjectName}
+                                        onChange={e => setPmProjectName(e.target.value)}
+                                        placeholder="e.g. Skyline Tower Phase 1"
+                                        style={{width:'100%',padding:'0.6rem 0.75rem',border:'1.5px solid #d1d5db',borderRadius:'6px',fontSize:'0.9rem',outline:'none'}}
+                                        onFocus={e => e.target.style.borderColor='#1B4F8A'}
+                                        onBlur={e => e.target.style.borderColor='#d1d5db'}
+                                        onKeyDown={e => e.key === 'Enter' && handleSaveProject(pmProjectName)}
+                                        autoFocus
+                                    />
+                                    <p style={{fontSize:'0.78rem',color:'#6B7280',marginTop:'0.5rem'}}>Your project will be saved in this browser's local storage.</p>
+                                </div>
+                                <div className="pm-modal-footer">
+                                    <button onClick={() => setPmModal(null)} style={{padding:'0.5rem 1rem',border:'1px solid #d1d5db',borderRadius:'6px',background:'white',cursor:'pointer',fontSize:'0.85rem'}}>Cancel</button>
+                                    <button onClick={() => handleSaveProject(pmProjectName)} style={{padding:'0.5rem 1.25rem',border:'none',borderRadius:'6px',background:'#2EAA4A',color:'white',cursor:'pointer',fontSize:'0.85rem',fontWeight:600}}>Save Project</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ===== OPEN PROJECT MODAL ===== */}
+                    {pmModal === 'open' && (() => {
+                        const projects = getSavedProjects();
+                        return (
+                            <div className="pm-modal-overlay" onClick={() => setPmModal(null)}>
+                                <div className="pm-modal" onClick={e => e.stopPropagation()}>
+                                    <div className="pm-modal-header">
+                                        <span style={{fontWeight:700, fontSize:'1rem'}}>📂 Open Project</span>
+                                        <button onClick={() => setPmModal(null)} style={{background:'none',border:'none',color:'white',cursor:'pointer',fontSize:'1.2rem'}}>✕</button>
+                                    </div>
+                                    <div className="pm-modal-body">
+                                        {projects.length === 0 ? (
+                                            <div style={{textAlign:'center',padding:'2rem',color:'#6B7280'}}>
+                                                <div style={{fontSize:'2.5rem',marginBottom:'0.5rem'}}>📭</div>
+                                                <p style={{fontWeight:600}}>No saved projects yet</p>
+                                                <p style={{fontSize:'0.8rem',marginTop:'0.25rem'}}>Save your current project to get started.</p>
+                                            </div>
+                                        ) : projects.slice().reverse().map(proj => (
+                                            <div key={proj.id} className={`pm-project-card ${proj.id === currentProjectId ? 'active-project' : ''}`} onClick={() => handleLoadProject(proj)}>
+                                                <div>
+                                                    <div style={{fontWeight:700,fontSize:'0.9rem',color:'#1B4F8A'}}>{proj.name}</div>
+                                                    <div style={{fontSize:'0.75rem',color:'#6B7280',marginTop:'2px'}}>
+                                                        {proj.data?.projectType || ''} · {proj.data?.currency || ''} · Saved {new Date(proj.savedAt).toLocaleDateString()} {new Date(proj.savedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                                                    </div>
+                                                </div>
+                                                <div style={{display:'flex',alignItems:'center',gap:'0.5rem'}}>
+                                                    {proj.id === currentProjectId && <span style={{fontSize:'0.7rem',background:'#2EAA4A',color:'white',padding:'2px 8px',borderRadius:'999px',fontWeight:600}}>Current</span>}
+                                                    <button onClick={(e) => handleDeleteProject(proj.id, e)} style={{background:'#fee2e2',border:'none',color:'#dc2626',borderRadius:'5px',padding:'4px 8px',cursor:'pointer',fontSize:'0.75rem',fontWeight:600}}>
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="pm-modal-footer">
+                                        <button onClick={() => setPmModal(null)} style={{padding:'0.5rem 1rem',border:'1px solid #d1d5db',borderRadius:'6px',background:'white',cursor:'pointer',fontSize:'0.85rem'}}>Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* ===== TOAST NOTIFICATION ===== */}
+                    {pmToast && (
+                        <div className="pm-toast" style={{background: pmToast.color}}>
+                            {pmToast.msg}
+                        </div>
+                    )}
+
                     {/* Header */}
                     <div className="gradient-bg text-white shadow-lg" style={{padding: "0"}}>
                         <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", padding:"1rem 1.5rem"}}>
@@ -1906,6 +3118,7 @@
                                         )}
 
                                         {/* Retail Breakdown */}
+                                        {showRetail && (
                                         <div className="mb-6">
                                             <h4 className="text-lg font-bold text-gray-700 mb-3">Retail - Area Breakdown</h4>
                                             <div className="overflow-x-auto">
@@ -2068,6 +3281,7 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        )} {/* end showRetail */}
                                     </div>
                                 )}
 
@@ -2075,6 +3289,44 @@
                             {/* Development Costs Tab */}
                             {activeTab === 'costs' && (
                                 <div className="space-y-8">
+
+                                {/* ============================================================ */}
+                                {/* COST INPUT MODE SELECTOR                                    */}
+                                {/* ============================================================ */}
+                                <div className="module-card p-4 flex items-center gap-6">
+                                    <div>
+                                        <h3 className="text-sm font-bold text-gray-700 mb-1">Cost Input Mode</h3>
+                                        <p className="text-xs text-gray-500">Choose how to enter development costs across asset classes</p>
+                                    </div>
+                                    <div className="flex gap-3 ml-4">
+                                        <button
+                                            onClick={() => handleCostInputModeChange('separate')}
+                                            className={`px-5 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${
+                                                costInputMode === 'separate'
+                                                    ? 'bg-blue-800 text-white border-blue-800 shadow-md'
+                                                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                                            }`}
+                                        >
+                                            📋 Separate Input per Asset
+                                        </button>
+                                        <button
+                                            onClick={() => handleCostInputModeChange('same-for-all')}
+                                            className={`px-5 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${
+                                                costInputMode === 'same-for-all'
+                                                    ? 'bg-green-700 text-white border-green-700 shadow-md'
+                                                    : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'
+                                            }`}
+                                        >
+                                            🔗 Same for All Assets
+                                        </button>
+                                    </div>
+                                    {costInputMode === 'same-for-all' && (
+                                        <div className="ml-2 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-xs text-green-800">
+                                            <strong>One input section applies to all active assets.</strong><br/>
+                                            Rate-based costs auto-scale to each asset's area. Land lines remain asset-specific.
+                                        </div>
+                                    )}
+                                </div>
 
                                 {/* ============================================================ */}
                                 {/* CAPEX SUMMARY — TOP OF COSTS TAB                            */}
@@ -2210,7 +3462,7 @@
                                                 rows={[
                                                     { label: 'Residential', buckets: resBuckets  },
                                                     { label: 'Hospitality', buckets: hospBuckets },
-                                                    { label: 'Retail',      buckets: retBuckets  },
+                                                    ...(showRetail ? [{ label: 'Retail', buckets: retBuckets }] : []),
                                                 ]}
                                                 totals={exclTotals}
                                             />
@@ -2221,7 +3473,7 @@
                                                 rows={[
                                                     { label: 'Residential', buckets: resBucketsIK  },
                                                     { label: 'Hospitality', buckets: hospBucketsIK },
-                                                    { label: 'Retail',      buckets: retBucketsIK  },
+                                                    ...(showRetail ? [{ label: 'Retail', buckets: retBucketsIK }] : []),
                                                 ]}
                                                 totals={inclTotals}
                                             />
@@ -2245,7 +3497,7 @@
                                     const visibleAssets = [
                                         ...(showResidential ? ['residential'] : []),
                                         ...(showHospitality ? ['hospitality'] : []),
-                                        'retail'
+                                        ...(showRetail      ? ['retail']      : []),
                                     ];
 
                                     const costsMap = {
@@ -2439,6 +3691,166 @@
                                         </div>
                                     );
                                 })()}
+
+                                {/* ============================================================ */}
+                                {/* SAME-FOR-ALL MASTER INPUT SECTION                          */}
+                                {/* ============================================================ */}
+                                {costInputMode === 'same-for-all' && (() => {
+                                    const costs = residentialCosts;
+                                    const addCost = addSameForAllCost;
+                                    const deleteCost = deleteSameForAllCost;
+                                    const updateCost = updateSameForAllCost;
+                                    const assetType = 'residential';
+                                    return (
+                                        <div className="module-card p-6 border-2 border-green-400">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <div>
+                                                    <h2 className="text-2xl font-bold text-green-900">DEVELOPMENT COSTS — SHARED INPUT</h2>
+                                                    <p className="text-sm text-green-700 mt-1">Applies to: {[showResidential && 'Residential', showHospitality && 'Hospitality', showRetail && 'Retail'].filter(Boolean).join(', ')} — rate-based methods auto-scale to each asset's area in the CAPEX summary above.</p>
+                                                </div>
+                                                <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">Preview in {currency} (Residential areas)</span>
+                                            </div>
+                                            <div className="overflow-x-auto mb-4">
+                                                <table className="w-full text-sm border-collapse" style={{minWidth:'1200px'}}>
+                                                    <thead>
+                                                        <tr className="bg-green-800 text-white text-xs">
+                                                            <th className="p-2 text-left" style={{minWidth:'150px'}}>Cost Item Name</th>
+                                                            <th className="p-2 text-left" style={{minWidth:'220px'}}>Calculation Method</th>
+                                                            <th className="p-2 text-right" style={{minWidth:'120px'}}>Base Value (Res. preview)</th>
+                                                            <th className="p-2 text-right" style={{minWidth:'90px'}}>Input Value</th>
+                                                            <th className="p-2 text-right" style={{minWidth:'110px'}}>Total (Res. preview)</th>
+                                                            <th className="p-2 text-center" style={{minWidth:'75px'}}>Start Period</th>
+                                                            <th className="p-2 text-center" style={{minWidth:'75px'}}>End Period</th>
+                                                            <th className="p-2 text-left" style={{minWidth:'200px'}}>Period Wise Allocation %</th>
+                                                            <th className="p-2 text-center" style={{minWidth:'40px'}}></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {costs.map((cost, idx) => {
+                                                            const isLand = cost.id === 1;
+                                                            const isRate = cost.method.startsWith('rate_');
+                                                            const isPct  = cost.method === 'percent_base';
+                                                            const areaVal = isRate ? getMethodBase(cost.method, assetType) : null;
+                                                            const baseVal = isPct  ? getSelectedBase(cost, costs, assetType) : null;
+                                                            const total   = calculateItemTotal(cost, assetType);
+                                                            const otherCosts = costs.filter(c => c.id !== cost.id);
+                                                            const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                                                            const a = getAreas(assetType);
+                                                            return (
+                                                                <tr key={cost.id} className={rowBg}>
+                                                                    <td className="p-2 border-b border-gray-200">
+                                                                        <input type="text" value={cost.name} onChange={e => updateCost(cost.id,'name',e.target.value)} disabled={isLand}
+                                                                            className={`w-full px-2 py-1 border rounded text-xs ${isLand?'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed':'input-assumption'}`}/>
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200">
+                                                                        {isLand ? <span className="text-xs text-gray-400 italic">Fixed (Auto per asset)</span> : (
+                                                                            <div>
+                                                                                <select value={cost.method} onChange={e => updateCost(cost.id,'method',e.target.value)} className="input-assumption w-full px-2 py-1 rounded text-xs mb-1">
+                                                                                    <optgroup label="── Fixed ──"><option value="fixed">Fixed Amount</option></optgroup>
+                                                                                    <optgroup label="── Rate (×Area sqm) ──">
+                                                                                        <option value="rate_total_allocated">Total Allocated Area</option>
+                                                                                        <option value="rate_net_developable">Net Developable Area</option>
+                                                                                        <option value="rate_roads">Roads Area</option>
+                                                                                        <option value="rate_gfa">GFA</option>
+                                                                                        <option value="rate_bua">BUA</option>
+                                                                                    </optgroup>
+                                                                                    <optgroup label="── Percentage of ──">
+                                                                                        <option value="percent_base">% of Selected Costs ▾</option>
+                                                                                        <option value="percent_total_land">% of Total Land Cost</option>
+                                                                                        <option value="percent_cash_land">% of Cash Land Value</option>
+                                                                                        <option value="percent_inkind_land">% of In-Kind Land Value</option>
+                                                                                    </optgroup>
+                                                                                </select>
+                                                                                {isPct && (
+                                                                                    <div className="border border-blue-200 rounded bg-white shadow-sm" style={{maxHeight:'110px',overflowY:'auto',fontSize:'0.68rem'}}>
+                                                                                        {otherCosts.length===0 ? <div className="text-gray-400 px-2 py-1 italic">No other items yet</div>
+                                                                                            : otherCosts.map(oc => (
+                                                                                                <label key={oc.id} className="flex items-center gap-1.5 px-2 py-0.5 hover:bg-blue-50 cursor-pointer">
+                                                                                                    <input type="checkbox" checked={(cost.selectedIds||[]).includes(oc.id)}
+                                                                                                        onChange={e => { const sel=cost.selectedIds||[]; updateCost(cost.id,'selectedIds',e.target.checked?[...sel,oc.id]:sel.filter(x=>x!==oc.id)); }}/>
+                                                                                                    <span className="text-gray-700">{oc.name}</span>
+                                                                                                </label>
+                                                                                            ))
+                                                                                        }
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200 text-right text-xs">
+                                                                        {isLand && <span className="text-gray-400 italic">auto</span>}
+                                                                        {isRate && <span className="font-semibold text-green-700">{formatInput(areaVal)} sqm</span>}
+                                                                        {isPct  && <span className="font-semibold text-green-700">{formatNumber(baseVal)}</span>}
+                                                                        {cost.method==='percent_total_land'  && <span className="font-semibold text-green-700">{formatNumber(a.landValue)}</span>}
+                                                                        {cost.method==='percent_cash_land'   && <span className="font-semibold text-green-700">{formatNumber(a.cashLandValue)}</span>}
+                                                                        {cost.method==='percent_inkind_land' && <span className="font-semibold text-green-700">{formatNumber(a.inKindLandValue)}</span>}
+                                                                        {cost.method==='fixed' && !isLand && <span className="text-gray-400 italic">—</span>}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200">
+                                                                        {isLand ? <span className="text-xs text-gray-500 text-right block">auto</span> : (
+                                                                            <div className="flex items-center gap-0.5 justify-end">
+                                                                                {isPct||cost.method.startsWith('percent_')?<span className="text-gray-500 text-xs">%</span>:isRate?<span className="text-gray-500 text-xs">$/sqm</span>:null}
+                                                                                <input type="number" value={cost.value} onChange={e => updateCost(cost.id,'value',parseFloat(e.target.value)||0)} className="input-assumption w-20 px-2 py-1 rounded text-xs text-right"/>
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200 text-right font-bold text-blue-900 text-sm">{formatNumber(total)}</td>
+                                                                    <td className="p-2 border-b border-gray-200 text-center">
+                                                                        {isLand ? <span className="text-xs text-gray-400">0</span> : (
+                                                                            <input type="number" value={cost.startPeriod} min="0" max={constructionPeriods}
+                                                                                onChange={e => updateCost(cost.id,'startPeriod',parseInt(e.target.value)||0)}
+                                                                                className="input-assumption w-14 px-1 py-0.5 rounded text-xs text-center"/>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200 text-center">
+                                                                        {isLand ? <span className="text-xs text-gray-400">0</span> : (
+                                                                            <input type="number" value={cost.endPeriod} min="0" max={constructionPeriods}
+                                                                                onChange={e => updateCost(cost.id,'endPeriod',parseInt(e.target.value)||0)}
+                                                                                className="input-assumption w-14 px-1 py-0.5 rounded text-xs text-center"/>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200" style={{minWidth:'200px'}}>
+                                                                        {isLand ? <span className="text-xs text-gray-400">100% (Period 0)</span> : (
+                                                                            <div>
+                                                                                <select value={getPhasingMode(cost)} onChange={e => { const m=e.target.value; if(m==='even'){updateCost(cost.id,'phasing','even');}else{const cnt=Math.max(1,cost.endPeriod-cost.startPeriod+1);updateCost(cost.id,'phasing',{type:'manual',values:Array(cnt).fill(0)});} }} className="input-assumption w-full px-2 py-1 rounded text-xs mb-1">
+                                                                                    <option value="even">Even Distribution</option>
+                                                                                    <option value="manual">Manual Allocation %</option>
+                                                                                </select>
+                                                                                {getPhasingMode(cost)==='manual'&&(()=>{
+                                                                                    const cnt=Math.max(1,cost.endPeriod-cost.startPeriod+1);
+                                                                                    const vals=getPhasingValues(cost);
+                                                                                    const fv=Array(cnt).fill(0).map((_,i)=>vals[i]!==undefined?vals[i]:0);
+                                                                                    const v=validatePhasingValues(fv,cost.startPeriod,cost.endPeriod);
+                                                                                    return(<div className="border border-gray-200 rounded bg-gray-50 p-1" style={{overflowX:'auto'}}>
+                                                                                        <table className="text-xs" style={{minWidth:Math.max(200,cnt*55)+'px'}}>
+                                                                                            <thead><tr className="bg-gray-200"><td className="px-1 py-0.5 font-semibold">Period</td><td className="px-1 py-0.5 font-semibold text-center">Total</td>{fv.map((_,i)=><td key={i} className="px-1 py-0.5 font-semibold text-center">{modelType==='monthly'?'M':'Y'}{cost.startPeriod+i}</td>)}</tr></thead>
+                                                                                            <tbody><tr><td className="px-1 py-0.5 text-gray-500">Alloc %</td><td className={`px-1 py-0.5 text-center font-bold ${!v.valid?'text-red-600':'text-green-700'}`}>{fv.reduce((a,b)=>a+b,0).toFixed(1)}%</td>
+                                                                                            {fv.map((val,i)=><td key={i} className="px-0.5 py-0.5"><input type="number" value={val} min="0" max="100" step="0.1" onChange={e=>{const nv=[...fv];nv[i]=parseFloat(e.target.value)||0;updateCost(cost.id,'phasing',{type:'manual',values:nv});}} className={`w-12 px-1 py-0.5 border rounded text-center ${!v.valid?'border-red-400 bg-red-50':'input-assumption'}`}/></td>)}</tr></tbody>
+                                                                                        </table>
+                                                                                        {!v.valid&&<div className="text-red-500 text-xs mt-0.5">{v.error} — must total 100%</div>}
+                                                                                    </div>);
+                                                                                })()}
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-2 border-b border-gray-200 text-center">
+                                                                        {cost.canDelete && <button onClick={() => deleteCost(cost.id)} className="text-red-500 hover:text-red-700 text-lg">🗑️</button>}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <button onClick={addCost} className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded text-sm font-semibold">+ Add Cost Row (applies to all assets)</button>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* ============================================================ */}
+                                {/* SEPARATE ASSET INPUT SECTIONS (separate mode only)          */}
+                                {/* ============================================================ */}
+                                {costInputMode === 'separate' && (<>
 
                                 {/* RESIDENTIAL DEVELOPMENT COSTS */}
                                 {showResidential && (
@@ -3161,6 +4573,8 @@
                                     </div>
                                 )}
 
+                                </>)} {/* end costInputMode === 'separate' */}
+
                                 </div>
                             )}
 
@@ -3323,7 +4737,7 @@
 
                                         {/* Grand KPI totals */}
                                         {(()=>{
-                                            const assets=[...(showResidential?['residential']:[]),...(showHospitality?['hospitality']:[]),'retail'];
+                                            const assets=[...(showResidential?['residential']:[]),...(showHospitality?['hospitality']:[]),...(showRetail?['retail']:[])];
                                             const tCost=assets.reduce((s,a)=>{const f=getFinForAsset(a);return s+(f?f.lineItems.reduce((x,l)=>x+l.total,0):0);},0);
                                             const tDebt=assets.reduce((s,a)=>{const f=getFinForAsset(a);return s+(f?f.totalDebt:0);},0);
                                             const tEq=assets.reduce((s,a)=>{const f=getFinForAsset(a);return s+(f?f.totalEquity:0);},0);
@@ -3361,7 +4775,7 @@
                                         {(()=>{
                                             const ACOLOR={residential:'#1B4F8A',hospitality:'#2EAA4A',retail:'#6B7280'};
                                             const ALABEL={residential:'Residential',hospitality:'Hospitality',retail:'Retail'};
-                                            const visibleAssets=[...(showResidential?['residential']:[]),...(showHospitality?['hospitality']:[]),'retail'];
+                                            const visibleAssets=[...(showResidential?['residential']:[]),...(showHospitality?['hospitality']:[]),...(showRetail?['retail']:[])];
                                             const totalPeriods=constructionPeriods+operationsPeriods;
                                             const pLabel=p=>modelType==='monthly'?`M${p}`:`Y${p}`;
                                             const periods=Array.from({length:totalPeriods+1},(_,p)=>p);
