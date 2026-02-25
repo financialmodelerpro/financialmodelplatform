@@ -748,8 +748,21 @@
                 const costs = costsArr || (assetType==='residential' ? residentialCosts : assetType==='hospitality' ? hospitalityCosts : retailCosts);
                 const a = getAreas(assetType);
                 const val = parseFloat(cost.value) || 0;
+                // In same-for-all mode, fixed amounts are project-level totals and must be
+                // proportioned by this asset's land allocation share
+                const getSameForAllFactor = () => {
+                    if (costInputMode !== 'same-for-all' || cost.canDelete === false) return 1;
+                    const totalAlloc = (showResidential ? residentialPercent : 0)
+                                     + (showHospitality ? hospitalityPercent : 0)
+                                     + (showRetail ? retailPercent : 0);
+                    if (totalAlloc <= 0) return 0;
+                    const thisAlloc = assetType === 'residential' ? residentialPercent
+                                    : assetType === 'hospitality' ? hospitalityPercent
+                                    : retailPercent;
+                    return thisAlloc / totalAlloc;
+                };
                 switch(cost.method) {
-                    case 'fixed':                return val;
+                    case 'fixed':                return val * getSameForAllFactor();
                     case 'rate_total_allocated': return val * a.totalAllocated;
                     case 'rate_net_developable':  return val * a.netDevelopable;
                     case 'rate_roads':            return val * a.roadsArea;
@@ -1975,12 +1988,14 @@
                 }
 
                 // ════════════════════════════════════════════
-                //  PAGE 4 — TAB 4: FINANCING
+                // ════════════════════════════════════════════
+                //  PAGE 4 — TAB 4: FINANCING SUMMARY
                 // ════════════════════════════════════════════
                 doc.addPage();
-                drawPageHeader('Tab 4: Financing', 'Debt/Equity Structure, Repayment Schedule & Period-by-Period Balances');
+                drawPageHeader('Tab 4: Financing', 'Financing Summary — Cost, Debt & Equity by Line Item');
                 y = CONTENT_TOP;
 
+                // ── Financing Assumptions ──────────────────────────────────
                 y = sectionTitle(y, 'FINANCING ASSUMPTIONS');
                 y = tblDef(y,
                     [['Parameter','Value','Parameter','Value']],
@@ -1988,114 +2003,332 @@
                         ['Interest Rate', interestRate + '% p.a.', 'Financing Mode', financingMode==='fixed'?'Fixed Global Ratio':'Per Line Item'],
                         ['Global Debt %', fmtP(globalDebtPct), 'Global Equity %', fmtP(100-globalDebtPct)],
                         ['Repayment Method', repaymentMethod==='fixed'?'Fixed Instalments':'Cash Sweep', 'Repayment Periods', repaymentPeriods + ' ' + periodLabel],
-                        ['Capitalize Interest', capitalizeInterest?'Yes — interest added to debt balance':'No — interest expensed each period', 'Grace Period', 'Entire construction phase (' + constructionPeriods + ' ' + periodLabel + ')'],
+                        ['Capitalize Interest', capitalizeInterest?'Yes — interest added to debt balance':'No — interest expensed each period', 'Grace Period', 'Construction phase (' + constructionPeriods + ' ' + periodLabel + ')'],
                     ],
-                    {0:{cellWidth:50,fontStyle:'bold'},1:{cellWidth:80},2:{cellWidth:50,fontStyle:'bold'},3:{cellWidth:CW-180}}
+                    {0:{cellWidth:46,fontStyle:'bold'},1:{cellWidth:74},2:{cellWidth:46,fontStyle:'bold'},3:{cellWidth:CW-166}}
                 );
 
-                y = sectionTitle(y+2, 'FINANCING SUMMARY BY ASSET');
-                const finSumHead = [['Asset','Cost Items','Total Cost (' + currency + ')','Debt %','Total Debt (' + currency + ')','Total Equity (' + currency + ')','Interest (' + currency + ')','Total Inc. Interest (' + currency + ')']];
-                const finSumBody = [];
-                let grandD=0,grandE=0,grandI=0,grandC=0;
-                [['Residential',finRes],['Hospitality',finHosp],['Retail',finRet]].forEach(([a,f])=>{
-                    if(!f) return;
-                    const tc = f.totalDebt + f.totalEquity;
-                    grandC+=tc; grandD+=f.totalDebt; grandE+=f.totalEquity; grandI+=f.totalInterest;
-                    finSumBody.push([a, f.lineItems.length, fmtN(tc), fmtP(globalDebtPct), fmtN(f.totalDebt), fmtN(f.totalEquity), fmtN(f.totalInterest), fmtN(tc+f.totalInterest)]);
+                // ── KPI boxes ──────────────────────────────────────────────
+                const activeAssets = [
+                    ...(showResidential ? [['Residential', finRes]] : []),
+                    ...(showHospitality ? [['Hospitality', finHosp]] : []),
+                    ...(showRetail      ? [['Retail',      finRet]]  : []),
+                ];
+                const pdfAllCost = activeAssets.reduce((s,[,f])=>s+(f?f.totalDebt+f.totalEquity:0),0);
+                const pdfAllDebt = activeAssets.reduce((s,[,f])=>s+(f?f.totalDebt:0),0);
+                const pdfAllEq   = activeAssets.reduce((s,[,f])=>s+(f?f.totalEquity:0),0);
+                const pdfAllInt  = activeAssets.reduce((s,[,f])=>s+(f?f.totalInterest:0),0);
+
+                y += 3;
+                const kpiW = (CW - 6) / 4;
+                const kpiH = 12;
+                const kpiItems = [
+                    ['Total Dev Cost', fmtC(pdfAllCost), [13,46,90],  [232,240,251]],
+                    ['Total Debt',     fmtC(pdfAllDebt), [13,46,90],  [232,240,251]],
+                    ['Total Equity',   fmtC(pdfAllEq),   [27,110,80], [232,247,240]],
+                    ['Finance Cost',   fmtC(pdfAllInt),  [80,80,80],  [245,245,245]],
+                ];
+                kpiItems.forEach(([lbl,val,textClr,bgClr],i) => {
+                    const kx = ML + i * (kpiW + 2);
+                    doc.setFillColor(...bgClr);
+                    doc.roundedRect(kx, y, kpiW, kpiH, 1, 1, 'F');
+                    doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+                    doc.setTextColor(100,100,100);
+                    doc.text(lbl, kx + kpiW/2, y + 3.5, {align:'center'});
+                    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+                    doc.setTextColor(...textClr);
+                    doc.text(val, kx + kpiW/2, y + 8.5, {align:'center'});
                 });
-                finSumBody.push(['TOTAL','',fmtN(grandC),'',fmtN(grandD),fmtN(grandE),fmtN(grandI),fmtN(grandC+grandI)]);
-                y = tblDef(y, finSumHead, finSumBody,
-                    {0:{cellWidth:28,fontStyle:'bold'},1:{cellWidth:20,halign:'center'},2:{cellWidth:34,halign:'right'},3:{cellWidth:18,halign:'right'},4:{cellWidth:34,halign:'right'},5:{cellWidth:34,halign:'right'},6:{cellWidth:34,halign:'right'},7:{cellWidth:CW-202,halign:'right'}},
-                    {
-                        didParseCell: (data) => {
-                            if(data.row.index === finSumBody.length - 1) {
+                doc.setTextColor(0,0,0);
+                y += kpiH + 5;
+
+                // ── Financing Summary — combined line-item table (only active lines) ──
+                const pdfActiveCombined = combinedLines.filter(l => l.total > 0);
+                y = sectionTitle(y, 'FINANCING SUMMARY — COMBINED LINE ITEMS (ALL ASSETS)');
+
+                const finSumCols = ['Cost Item / Asset', 'Combined Total', 'Debt %', 'Equity %', 'Total Debt', 'Total Equity'];
+                activeAssets.forEach(([lbl]) => { finSumCols.push(lbl + ' Debt'); finSumCols.push(lbl + ' Equity'); });
+                const numFinCols = finSumCols.length;
+                const assetColW = Math.max(18, Math.floor((CW - 40 - 18 - 14 - 14 - 20 - 20) / Math.max(1, activeAssets.length * 2)));
+                const finColWidths = {
+                    0:{cellWidth:40,fontStyle:'bold'},
+                    1:{cellWidth:22,halign:'right'},
+                    2:{cellWidth:14,halign:'right'},
+                    3:{cellWidth:14,halign:'right'},
+                    4:{cellWidth:20,halign:'right'},
+                    5:{cellWidth:20,halign:'right'}
+                };
+                for(let ci=6; ci<numFinCols; ci++) finColWidths[ci] = {cellWidth:assetColW, halign:'right'};
+
+                const finSumRows = pdfActiveCombined.map(line => {
+                    const dPct = getLineDebtPct(line.name);
+                    const ePct = 100 - dPct;
+                    const lineDebt = line.total * dPct / 100;
+                    const lineEq   = line.total * ePct / 100;
+                    const row = [line.name, fmtN(line.total), fmtP(dPct), fmtP(ePct), fmtN(lineDebt), fmtN(lineEq)];
+                    activeAssets.forEach(([,fin]) => {
+                        if (!fin) { row.push('—'); row.push('—'); return; }
+                        const li = fin.lineItems.find(l => l.name === line.name);
+                        row.push(li ? fmtN(li.debtAmt) : '—');
+                        row.push(li ? fmtN(li.equityAmt) : '—');
+                    });
+                    return row;
+                });
+                // Grand total row
+                const gtRow = ['GRAND TOTAL', fmtN(pdfAllCost), '', '', fmtN(pdfAllDebt), fmtN(pdfAllEq)];
+                activeAssets.forEach(([,fin]) => {
+                    gtRow.push(fin ? fmtN(fin.totalDebt)   : '—');
+                    gtRow.push(fin ? fmtN(fin.totalEquity) : '—');
+                });
+                finSumRows.push(gtRow);
+
+                y = tblDef(y, [finSumCols], finSumRows, finColWidths, {
+                    didParseCell: (data) => {
+                        if (data.row.section === 'head') {
+                            data.cell.styles.fillColor = [13,46,90];
+                            data.cell.styles.textColor = 255;
+                            data.cell.styles.fontStyle = 'bold';
+                            data.cell.styles.fontSize  = 6.5;
+                        }
+                        if (data.row.section === 'body') {
+                            const isTotalRow = data.row.index === finSumRows.length - 1;
+                            if (isTotalRow) {
                                 data.cell.styles.fillColor = [13,46,90];
                                 data.cell.styles.textColor = 255;
                                 data.cell.styles.fontStyle = 'bold';
+                                return;
                             }
+                            const alt = data.row.index % 2;
+                            // Debt columns (4, 6, 8…) light blue
+                            if (data.column.index === 4 || (data.column.index >= 6 && data.column.index % 2 === 0))
+                                data.cell.styles.fillColor = alt ? [220,232,248] : [232,240,251];
+                            // Equity columns (5, 7, 9…) light green
+                            else if (data.column.index === 5 || (data.column.index >= 7 && data.column.index % 2 !== 0))
+                                data.cell.styles.fillColor = alt ? [215,240,230] : [232,247,240];
+                            else if (alt)
+                                data.cell.styles.fillColor = [245,248,252];
                         }
-                    }
-                );
-
-                // Line item detail per asset
-                [['Residential',finRes,'residential'],['Hospitality',finHosp,'hospitality'],['Retail',finRet,'retail']].forEach(([a,f,at])=>{
-                    if(!f) return;
-                    y = sectionTitle(y+2, a.toUpperCase() + ' — LINE ITEM FINANCING DETAIL');
-                    const liHead = [['Cost Item','Total Cost','Debt %','Debt Amount','Equity Amount']];
-                    const liBody = f.lineItems.map(l=>[l.name, fmtN(l.total), fmtP(l.debtPct), fmtN(l.debtAmt), fmtN(l.equityAmt)]);
-                    liBody.push(['TOTAL', fmtN(f.totalDebt+f.totalEquity), fmtP(globalDebtPct), fmtN(f.totalDebt), fmtN(f.totalEquity)]);
-                    y = tblDef(y, liHead, liBody,
-                        {0:{cellWidth:CW-4*30-4,fontStyle:'bold'},1:{cellWidth:30,halign:'right'},2:{cellWidth:30,halign:'right'},3:{cellWidth:30,halign:'right'},4:{cellWidth:30,halign:'right'}},
-                        {
-                            didParseCell: (data) => {
-                                if(data.row.index === f.lineItems.length) {
-                                    data.cell.styles.fillColor = [27,79,138];
-                                    data.cell.styles.textColor = 255;
-                                    data.cell.styles.fontStyle = 'bold';
-                                }
-                            }
-                        }
-                    );
-                });
-
-                // Period-by-period schedule (new page)
-                doc.addPage();
-                drawPageHeader('Tab 4: Financing (cont.)', 'Period-by-Period Debt, Equity & Interest Schedule');
-                y = CONTENT_TOP;
-
-                [['Residential',finRes],['Hospitality',finHosp],['Retail',finRet]].forEach(([a,f])=>{
-                    if(!f) return;
-                    const totalP = f.totalPeriods;
-                    const maxDisplay = Math.min(totalP, 18);
-                    y = sectionTitle(y, a.toUpperCase() + ' — PERIOD SCHEDULE (' + totalP + ' ' + periodLabel + ' total; showing first ' + maxDisplay + ')');
-                    const schHead = ['Metric'];
-                    for(let p=0;p<maxDisplay;p++) schHead.push(p < constructionPeriods ? 'C'+(p+1) : 'O'+(p-constructionPeriods+1));
-                    if(totalP>maxDisplay) schHead.push('...');
-
-                    const mkRow = (label, arr) => {
-                        const r = [label];
-                        for(let p=0;p<maxDisplay;p++) r.push(arr[p]!==undefined?fmtN(arr[p]):'—');
-                        if(totalP>maxDisplay) r.push('...');
-                        return r;
-                    };
-
-                    const schBody = [
-                        mkRow('Debt Drawdown', f.debtAdd),
-                        mkRow('Debt Opening Bal.', f.debtOpen),
-                        mkRow('Interest', f.interest),
-                        mkRow('Debt Repayment', f.debtRep),
-                        mkRow('Debt Closing Bal.', f.debtClose),
-                        mkRow('Equity Injection', f.equityAdd),
-                        mkRow('Equity Closing Bal.', f.eqClose),
-                    ];
-
-                    const schColSt = {0:{cellWidth:34,fontStyle:'bold'}};
-                    const colW = (CW-34-( totalP>maxDisplay?8:0 )) / maxDisplay;
-                    for(let i=1;i<=maxDisplay;i++) schColSt[i]={cellWidth:colW,halign:'right',fontSize:6.5};
-                    if(totalP>maxDisplay) schColSt[maxDisplay+1]={cellWidth:8,halign:'center',fontSize:6};
-
-                    y = tblDef(y, [schHead], schBody, schColSt, {
-                        didParseCell: (data) => {
-                            // Shade construction vs operations columns
-                            if(data.row.section==='head' || data.column.index===0) return;
-                            const p = data.column.index - 1;
-                            if(p < constructionPeriods) {
-                                data.cell.styles.fillColor = data.row.index%2===0 ? [255,248,220] : [255,243,200];
-                            } else {
-                                data.cell.styles.fillColor = data.row.index%2===0 ? [220,240,255] : [210,234,253];
-                            }
-                        }
-                    });
-
-                    y += 4;
-                    if(y > CONTENT_BOTTOM - 30) {
-                        doc.addPage();
-                        drawPageHeader('Tab 4: Financing (cont.)', 'Period-by-Period Debt, Equity & Interest Schedule');
-                        y = CONTENT_TOP;
                     }
                 });
 
                 // ════════════════════════════════════════════
+                //  PAGE 5 — DEBT, EQUITY & FINANCE COST (Full Project)
+                // ════════════════════════════════════════════
+                doc.addPage();
+                drawPageHeader('Tab 4: Financing (cont.)', 'Debt, Equity & Finance Cost — Full Project Combined Schedule');
+                y = CONTENT_TOP;
+
+                // Build combined arrays across all active assets
+                const pdfTotalPeriods = constructionPeriods + operationsPeriods;
+                const pdfCombDebtAdd   = Array(pdfTotalPeriods + 1).fill(0);
+                const pdfCombDebtOpen  = Array(pdfTotalPeriods + 1).fill(0);
+                const pdfCombDebtRep   = Array(pdfTotalPeriods + 1).fill(0);
+                const pdfCombDebtClose = Array(pdfTotalPeriods + 1).fill(0);
+                const pdfCombEqAdd     = Array(pdfTotalPeriods + 1).fill(0);
+                const pdfCombEqClose   = Array(pdfTotalPeriods + 1).fill(0);
+                const pdfCombInt       = Array(pdfTotalPeriods + 1).fill(0);
+                activeAssets.forEach(([,f]) => {
+                    if (!f) return;
+                    for (let p = 0; p <= pdfTotalPeriods; p++) {
+                        pdfCombDebtAdd[p]   += f.debtAdd[p]   || 0;
+                        pdfCombDebtOpen[p]  += f.debtOpen[p]  || 0;
+                        pdfCombDebtRep[p]   += f.debtRep[p]   || 0;
+                        pdfCombDebtClose[p] += f.debtClose[p] || 0;
+                        pdfCombEqAdd[p]     += f.equityAdd[p] || 0;
+                        pdfCombEqClose[p]   += f.eqClose[p]   || 0;
+                        pdfCombInt[p]       += f.interest[p]  || 0;
+                    }
+                });
+
+                const maxDispFull = Math.min(pdfTotalPeriods, 20);
+                const pdfPLabel = (p) => {
+                    if (p === 0) return modelType === 'monthly' ? 'M0' : 'Y0';
+                    return p < constructionPeriods ? 'C' + p : 'O' + (p - constructionPeriods);
+                };
+
+                // ── KPI row for this page ─────────────────────────────────
+                const kpiW2 = (CW - 6) / 3;
+                [['Total Debt Drawn', fmtC(pdfAllDebt), [13,46,90],[232,240,251]],
+                 ['Total Equity',     fmtC(pdfAllEq),   [27,110,80],[232,247,240]],
+                 ['Total Finance Cost',fmtC(pdfAllInt),  [80,80,80],[245,245,245]]
+                ].forEach(([lbl,val,tc,bg],i) => {
+                    const kx = ML + i * (kpiW2 + 3);
+                    doc.setFillColor(...bg);
+                    doc.roundedRect(kx, y, kpiW2, 10, 1, 1, 'F');
+                    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(100,100,100);
+                    doc.text(lbl, kx + kpiW2/2, y + 3, {align:'center'});
+                    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...tc);
+                    doc.text(val, kx + kpiW2/2, y + 7.5, {align:'center'});
+                });
+                doc.setTextColor(0,0,0);
+                y += 14;
+
+                // ── Helper: draw a schedule block with colored period columns ─
+                const drawFinBlock = (blockTitle, blockTitleBg, rows) => {
+                    // Title bar
+                    doc.setFillColor(...blockTitleBg);
+                    doc.roundedRect(ML, y, CW, 6, 1, 1, 'F');
+                    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+                    doc.setTextColor(255,255,255);
+                    doc.text(blockTitle, ML + 4, y + 4.3);
+                    doc.setTextColor(0,0,0);
+                    y += 8;
+
+                    const schHead = ['Description', 'Total'];
+                    for (let p = 0; p <= maxDispFull; p++) schHead.push(pdfPLabel(p));
+                    if (pdfTotalPeriods > maxDispFull) schHead.push('...');
+
+                    const totalColW = 24;
+                    const labelColW = 36;
+                    const dotW = pdfTotalPeriods > maxDispFull ? 8 : 0;
+                    const perColW = (CW - labelColW - totalColW - dotW) / (maxDispFull + 1);
+                    const colSt = {0:{cellWidth:labelColW,fontStyle:'bold'}, 1:{cellWidth:totalColW,halign:'right',fontStyle:'bold'}};
+                    for (let i = 2; i <= maxDispFull + 2; i++) colSt[i] = {cellWidth:perColW,halign:'right',fontSize:6};
+                    if (pdfTotalPeriods > maxDispFull) colSt[maxDispFull + 3] = {cellWidth:dotW,halign:'center',fontSize:5.5};
+
+                    const schBody = rows.map(([lbl, arr, bold]) => {
+                        const tot = arr.reduce((a,b)=>a+b,0);
+                        const row = [lbl, fmtN(tot)];
+                        for (let p = 0; p <= maxDispFull; p++) row.push(arr[p] ? fmtN(arr[p]) : '—');
+                        if (pdfTotalPeriods > maxDispFull) row.push('...');
+                        return row;
+                    });
+
+                    y = tblDef(y, [schHead], schBody, colSt, {
+                        didParseCell: (data) => {
+                            if (data.row.section === 'head') {
+                                data.cell.styles.fontSize = 6.5;
+                                if (data.column.index <= 1) return;
+                                const p = data.column.index - 2;
+                                data.cell.styles.fillColor = p < constructionPeriods ? [30,60,110] : [20,80,50];
+                            }
+                            if (data.row.section === 'body' && data.column.index >= 2) {
+                                const p = data.column.index - 2;
+                                const alt = data.row.index % 2;
+                                if (p < constructionPeriods)
+                                    data.cell.styles.fillColor = alt ? [255,243,200] : [255,250,230];
+                                else
+                                    data.cell.styles.fillColor = alt ? [210,235,255] : [225,242,255];
+                            }
+                        }
+                    });
+                    y += 5;
+                };
+
+                // ── Debt Schedule ─────────────────────────────────────────
+                const repayLabel = repaymentMethod === 'fixed' ? 'Fixed principal' : 'Cash sweep';
+                drawFinBlock(
+                    'DEBT SCHEDULE — FULL PROJECT   Grace: construction phase  |  ' + repayLabel + '  |  ' + repaymentPeriods + ' ' + periodLabel + ' repayment',
+                    [13,46,90],
+                    [
+                        ['Opening Balance',     pdfCombDebtOpen],
+                        ['(+) Drawdowns',        pdfCombDebtAdd],
+                        ['(+) Capitalized Int.', capitalizeInterest ? pdfCombInt : Array(pdfTotalPeriods+1).fill(0)],
+                        ['(-) Repayment',        pdfCombDebtRep],
+                        ['Closing Balance',      pdfCombDebtClose],
+                    ]
+                );
+
+                if (y > CONTENT_BOTTOM - 45) {
+                    doc.addPage();
+                    drawPageHeader('Tab 4: Financing (cont.)', 'Debt, Equity & Finance Cost — Full Project Combined Schedule');
+                    y = CONTENT_TOP;
+                }
+
+                // ── Equity Schedule ───────────────────────────────────────
+                const eqOpenBal = pdfCombEqClose.map((_,i) => i===0 ? 0 : (pdfCombEqClose[i-1]||0));
+                drawFinBlock(
+                    'EQUITY SCHEDULE — FULL PROJECT   Equity drawn same period as costs incurred',
+                    [27,110,60],
+                    [
+                        ['Opening Balance', eqOpenBal],
+                        ['(+) Injections',  pdfCombEqAdd],
+                        ['Closing Balance',  pdfCombEqClose],
+                    ]
+                );
+
+                if (y > CONTENT_BOTTOM - 45) {
+                    doc.addPage();
+                    drawPageHeader('Tab 4: Financing (cont.)', 'Debt, Equity & Finance Cost — Full Project Combined Schedule');
+                    y = CONTENT_TOP;
+                }
+
+                // ── Finance Cost (Interest) ───────────────────────────────
+                const cumInt = pdfCombInt.map((_,i) => pdfCombInt.slice(0,i+1).reduce((a,b)=>a+b,0));
+                drawFinBlock(
+                    'FINANCE COST (INTEREST) — FULL PROJECT   ' + (capitalizeInterest ? 'Capitalized into debt balance' : 'Expensed each period'),
+                    [100,50,10],
+                    [
+                        ['Interest Charge',    pdfCombInt],
+                        ['Cumulative Interest', cumInt],
+                    ]
+                );
+
+                // ════════════════════════════════════════════
+                //  PAGE 6 — PER-ASSET DETAIL SCHEDULES
+                // ════════════════════════════════════════════
+                doc.addPage();
+                drawPageHeader('Tab 4: Financing (cont.)', 'Per-Asset Debt, Equity & Interest — Detailed Schedules');
+                y = CONTENT_TOP;
+
+                activeAssets.forEach(([assetLabel, f]) => {
+                    if (!f) return;
+                    const totalP = f.totalPeriods;
+                    const maxD = Math.min(totalP, 18);
+
+                    y = sectionTitle(y, assetLabel.toUpperCase() + ' — PERIOD SCHEDULE (' + totalP + ' ' + periodLabel + ' total)');
+
+                    const schHeadA = ['Metric'];
+                    for (let p = 0; p < maxD; p++) schHeadA.push(pdfPLabel(p));
+                    if (totalP > maxD) schHeadA.push('...');
+
+                    const mkRow = (label, arr) => {
+                        const r = [label];
+                        for (let p = 0; p < maxD; p++) r.push(arr[p] ? fmtN(arr[p]) : '—');
+                        if (totalP > maxD) r.push('...');
+                        return r;
+                    };
+
+                    const schBodyA = [
+                        mkRow('Debt Drawdown',       f.debtAdd),
+                        mkRow('Debt Opening Bal.',   f.debtOpen),
+                        mkRow('Interest',            f.interest),
+                        mkRow('Debt Repayment',      f.debtRep),
+                        mkRow('Debt Closing Bal.',   f.debtClose),
+                        mkRow('Equity Injection',    f.equityAdd),
+                        mkRow('Equity Closing Bal.', f.eqClose),
+                    ];
+
+                    const colStA = {0:{cellWidth:34,fontStyle:'bold'}};
+                    const colWA = (CW - 34 - (totalP > maxD ? 8 : 0)) / maxD;
+                    for (let i = 1; i <= maxD; i++) colStA[i] = {cellWidth:colWA, halign:'right', fontSize:6.5};
+                    if (totalP > maxD) colStA[maxD+1] = {cellWidth:8, halign:'center', fontSize:6};
+
+                    y = tblDef(y, [schHeadA], schBodyA, colStA, {
+                        didParseCell: (data) => {
+                            if (data.column.index === 0) return;
+                            const p = data.column.index - 1;
+                            const alt = data.row.index % 2;
+                            if (data.row.section === 'head') {
+                                data.cell.styles.fillColor = p < constructionPeriods ? [30,60,110] : [20,80,50];
+                            } else {
+                                if (p < constructionPeriods)
+                                    data.cell.styles.fillColor = alt ? [255,243,200] : [255,250,230];
+                                else
+                                    data.cell.styles.fillColor = alt ? [210,235,255] : [225,242,255];
+                            }
+                        }
+                    });
+
+                    y += 5;
+                    if (y > CONTENT_BOTTOM - 30) {
+                        doc.addPage();
+                        drawPageHeader('Tab 4: Financing (cont.)', 'Per-Asset Debt, Equity & Interest — Detailed Schedules');
+                        y = CONTENT_TOP;
+                    }
+                });
+
+                                // ════════════════════════════════════════════
                 //  FOOTERS on all pages
                 // ════════════════════════════════════════════
                 const pageCount = doc.internal.getNumberOfPages();
@@ -3706,7 +3939,7 @@
                                             <div className="flex justify-between items-center mb-2">
                                                 <div>
                                                     <h2 className="text-2xl font-bold text-green-900">DEVELOPMENT COSTS — SHARED INPUT</h2>
-                                                    <p className="text-sm text-green-700 mt-1">Applies to: {[showResidential && 'Residential', showHospitality && 'Hospitality', showRetail && 'Retail'].filter(Boolean).join(', ')} — rate-based methods auto-scale to each asset's area in the CAPEX summary above.</p>
+                                                    <p className="text-sm text-green-700 mt-1">Applies to: {[showResidential && 'Residential', showHospitality && 'Hospitality', showRetail && 'Retail'].filter(Boolean).join(', ')} — <strong>Fixed amounts are treated as project totals and split proportionally by land allocation %.</strong> Rate-based methods auto-scale to each asset's area.</p>
                                                 </div>
                                                 <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">Preview in {currency} (Residential areas)</span>
                                             </div>
@@ -4873,6 +5106,8 @@
                                                 const allDebt=visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.totalDebt||0),0);
                                                 const allEq=visibleAssets.reduce((s,a)=>s+(getFinForAsset(a)?.totalEquity||0),0);
                                                 const allCost=combinedLines.reduce((s,l)=>s+l.total,0);
+                                                // Only show lines with actual costs > 0
+                                                const activeLines = combinedLines.filter(l => l.total > 0);
 
                                                 return (
                                                     <div>
@@ -4935,7 +5170,7 @@
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
-                                                                    {combinedLines.map((line,ni)=>{
+                                                                    {activeLines.map((line,ni)=>{
                                                                         const dPct=getLineDebtPct(line.name);
                                                                         const ePct=100-dPct;
                                                                         const lineDebt=line.total*dPct/100;
@@ -5012,15 +5247,15 @@
                                                                             GRAND TOTAL
                                                                         </td>
                                                                         <td style={{padding:'10px 10px',textAlign:'right',fontWeight:700,borderRight:'1px solid #374151'}}>
-                                                                            {fN(combinedLines.reduce((s,l)=>s+l.total,0))}
+                                                                            {fN(activeLines.reduce((s,l)=>s+l.total,0))}
                                                                         </td>
                                                                         <td style={{padding:'10px 10px',textAlign:'center',fontWeight:700,borderRight:'1px solid #374151'}}>—</td>
                                                                         <td style={{padding:'10px 10px',textAlign:'center',fontWeight:700,borderRight:'2px solid #374151'}}>—</td>
                                                                         <td style={{padding:'10px 10px',textAlign:'right',fontWeight:700,color:'#FCA5A5',borderRight:'1px solid #374151'}}>
-                                                                            {fN(combinedLines.reduce((s,l)=>s+l.total*getLineDebtPct(l.name)/100,0))}
+                                                                            {fN(activeLines.reduce((s,l)=>s+l.total*getLineDebtPct(l.name)/100,0))}
                                                                         </td>
                                                                         <td style={{padding:'10px 10px',textAlign:'right',fontWeight:700,color:'#A8D5B5',borderRight:'1px solid #374151'}}>
-                                                                            {fN(combinedLines.reduce((s,l)=>s+l.total*(100-getLineDebtPct(l.name))/100,0))}
+                                                                            {fN(activeLines.reduce((s,l)=>s+l.total*(100-getLineDebtPct(l.name))/100,0))}
                                                                         </td>
                                                                         {visibleAssets.map(a=>{
                                                                             const fin=getFinForAsset(a);
@@ -5051,7 +5286,7 @@
                                                             const ALABEL = {residential:'Residential', hospitality:'Hospitality', retail:'Retail'};
 
                                                             // Per line item, per asset — debt & equity period distributions
-                                                            const lineData = combinedLines.map(line => {
+                                                            const lineData = combinedLines.filter(l=>l.total>0).map(line => {
                                                                 const dPct = getLineDebtPct(line.name) / 100;
                                                                 const ePct = 1 - dPct;
                                                                 // Combined dist (sum all assets)
