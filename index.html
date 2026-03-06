@@ -1728,7 +1728,7 @@
             // }
 
             const [pmModal, setPmModal] = useState(null);
-            // pmModal values: null | 'projects' | 'versions' | 'compare' | 'newProject' | 'renameProject' | 'newVersion' | 'renameVersion'
+            // pmModal values: null | 'projects' | 'versions' | 'compare' | 'newProject' | 'renameProject' | 'newVersion' | 'renameVersion' | 'editProject'
             const [pmToast, setPmToast] = useState(null);
             const [activeProjectId, setActiveProjectId] = useState(null);
             const [activeVersionId, setActiveVersionId] = useState(null);
@@ -1739,6 +1739,16 @@
             const [pmAssetMix, setPmAssetMix] = useState([]);
             const [lastSavedAt, setLastSavedAt] = useState(null);
             const [hasUnsaved, setHasUnsaved] = useState(false);
+            // Edit project state
+            const [pmEditProjectId, setPmEditProjectId] = useState(null);
+            const [pmEditName, setPmEditName] = useState('');
+            const [pmEditLocation, setPmEditLocation] = useState('');
+            const [pmEditAssetMix, setPmEditAssetMix] = useState([]);
+            const [pmEditStatus, setPmEditStatus] = useState('Draft');
+            // Projects screen search/filter/sort
+            const [projectSearch, setProjectSearch] = useState('');
+            const [projectStatusFilter, setProjectStatusFilter] = useState('all');
+            const [projectSort, setProjectSort] = useState('modified');
 
             // ── helpers ──────────────────────────────────────────────────
             const showToast = (msg, color='var(--color-primary-deep)') => {
@@ -1777,6 +1787,11 @@
                 interestRate, financingMode, globalDebtPct, capitalizeInterest,
                 lineRatios, repaymentPeriods, repaymentMethod,
                 residentialCosts, hospitalityCosts, retailCosts, nextCostId, costInputMode,
+                // #15: capture assetMix so version snapshots fully round-trip
+                assetMix: (() => {
+                    const store = loadStorage();
+                    return store.projects[activeProjectId]?.assetMix || [];
+                })(),
             });
 
             const applySnapshot = (snap) => {
@@ -1804,6 +1819,14 @@
                 setResidentialCosts(snap.residentialCosts || []); setHospitalityCosts(snap.hospitalityCosts || []);
                 setRetailCosts(snap.retailCosts || []); setNextCostId(snap.nextCostId || 13);
                 if (snap.costInputMode) setCostInputMode(snap.costInputMode);
+                // #15: write assetMix back to project-level meta so edit modal stays in sync
+                if (snap.assetMix && snap.assetMix.length > 0 && activeProjectId) {
+                    const store = loadStorage();
+                    if (store.projects[activeProjectId]) {
+                        store.projects[activeProjectId].assetMix = snap.assetMix;
+                        saveStorage(store);
+                    }
+                }
             };
 
             // ── project CRUD ──────────────────────────────────────────────
@@ -1812,11 +1835,24 @@
                 const projId = genId('proj');
                 const verId = genId('ver');
                 const now = new Date().toISOString();
+                // Derive projectType from assetMix before saving snapshot
+                const mix = assetMix || [];
+                let derivedType = projectType; // keep existing if no mix
+                if (mix.length > 0) {
+                    const hasRes = mix.some(a => a === 'Residential');
+                    const hasHosp = mix.some(a => a === 'Hospitality');
+                    const hasRet = mix.some(a => a === 'Retail');
+                    if ((hasRes || hasRet) && hasHosp) derivedType = 'mixed-use';
+                    else if (hasRes && !hasHosp) derivedType = 'residential';
+                    else if (hasHosp && !hasRes) derivedType = 'hospitality';
+                    else if (mix.length > 1) derivedType = 'mixed-use';
+                    else derivedType = mix[0]?.toLowerCase() || projectType;
+                }
                 store.projects[projId] = {
                     name: name || 'New Project',
                     location: location || '',
                     status: 'Draft',
-                    assetMix: assetMix || [],
+                    assetMix: mix,
                     createdAt: now,
                     lastModified: now,
                     versions: {
@@ -1827,6 +1863,8 @@
                 setActiveProjectId(projId);
                 setActiveVersionId(verId);
                 setLastSavedAt(now);
+                // Apply derived project type so Module 1 reflects the chosen asset mix
+                if (derivedType !== projectType) setProjectType(derivedType);
                 return { projId, verId };
             };
 
@@ -1885,9 +1923,9 @@
                         if (activeProjectId && activeVersionId) {
                             handleSaveProject();
                         } else {
-                            // No project yet — open Projects modal to name it
-                            setPmInputVal(projectName || 'New Project');
-                            setPmModal('projects');
+                            // No project yet — navigate to Projects screen to create one
+                            setActiveModule('projects');
+                            showToast('💡 Create a project first to save your work', 'var(--color-primary-deep)');
                         }
                     }
                 };
@@ -1960,6 +1998,47 @@
                 }));
                 saveStorage(store);
                 showToast('📋 Project duplicated', 'var(--color-success)');
+            };
+
+            const updateProjectMeta = (projId, name, location, assetMix, status) => {
+                const store = loadStorage();
+                if (!store.projects[projId]) return;
+                store.projects[projId].name = name;
+                store.projects[projId].location = location;
+                store.projects[projId].assetMix = assetMix;
+                store.projects[projId].status = status;
+                store.projects[projId].lastModified = new Date().toISOString();
+                saveStorage(store);
+                // #15: if editing the currently active project, re-derive projectType from new assetMix
+                if (projId === activeProjectId && assetMix && assetMix.length > 0) {
+                    const hasRes  = assetMix.some(a => a === 'Residential');
+                    const hasHosp = assetMix.some(a => a === 'Hospitality');
+                    const hasRet  = assetMix.some(a => a === 'Retail');
+                    let derived = projectType;
+                    if ((hasRes || hasRet) && hasHosp) derived = 'mixed-use';
+                    else if (hasRes && !hasHosp) derived = 'residential';
+                    else if (hasHosp && !hasRes && !hasRet) derived = 'hospitality';
+                    else if (assetMix.length > 1) derived = 'mixed-use';
+                    else derived = assetMix[0]?.toLowerCase() || projectType;
+                    if (derived !== projectType) setProjectType(derived);
+                }
+                setPmModal(null);
+                setProjectsRenderKey(k => k + 1);
+                showToast('✏️ Project updated', 'var(--color-success)');
+            };
+
+            const [projectsRenderKey, setProjectsRenderKey] = useState(0);
+
+            const changeProjectStatus = (projId, newStatus) => {
+                const store = loadStorage();
+                if (!store.projects[projId]) return;
+                store.projects[projId].status = newStatus;
+                store.projects[projId].lastModified = new Date().toISOString();
+                saveStorage(store);
+                const icons = { Draft: '📝', Active: '✅', 'IC Review': '🔍', Approved: '✔️', Archived: '📦' };
+                showToast(`${icons[newStatus]||'🔄'} Status → ${newStatus}`, 'var(--color-primary-deep)');
+                // Force projects screen re-render regardless of current module
+                setProjectsRenderKey(k => k + 1);
             };
 
             // ── version CRUD ──────────────────────────────────────────────
@@ -3413,7 +3492,7 @@
                             <span className="pm-brand">🏗️ REFM Platform</span>
                             <div className="pm-divider"></div>
                             {/* Project Dropdown */}
-                            <button className="pm-btn ctx" onClick={() => { setPmInputVal(''); setPmModal('projects'); }}>
+                            <button className="pm-btn ctx" onClick={() => setActiveModule('projects')}>
                                 <span className="ctx-eyebrow">Project</span>
                                 <span style={{display:'flex',alignItems:'center',width:'100%'}}>
                                     <span className="ctx-name">{projName || '(unsaved)'}</span>
@@ -3488,6 +3567,8 @@
                     {pmModal === 'projects' && (() => {
                         const store = loadStorage();
                         const projects = Object.entries(store.projects || {});
+                        const activeOnlyProjects = projects.filter(([,p]) => p.status !== 'Archived');
+                        const archivedModalProjects = projects.filter(([,p]) => p.status === 'Archived');
                         return (
                         <div className="pm-modal-overlay" onClick={() => setPmModal(null)}>
                             <div className="pm-modal" style={{maxWidth:'560px'}} onClick={e => e.stopPropagation()}>
@@ -3506,7 +3587,9 @@
                                             <div style={{fontSize:'2rem',marginBottom:'var(--sp-1)'}}>📭</div>
                                             <p style={{fontWeight:'var(--fw-semibold)'}}>No saved projects yet</p>
                                         </div>
-                                    ) : projects.map(([pid, proj]) => {
+                                    ) : (
+                                    <>
+                                    {activeOnlyProjects.map(([pid, proj]) => {
                                         const isActive = pid === activeProjectId;
                                         const vCount = Object.keys(proj.versions||{}).length;
                                         const statusColors = {Draft:'#6B7280',Active:'#10B981','IC Review':'#F59E0B',Approved:'#3B82F6',Archived:'#9CA3AF'};
@@ -3526,6 +3609,8 @@
                                             </div>
                                             <div style={{display:'flex',gap:'4px',alignItems:'center'}} onClick={e=>e.stopPropagation()}>
                                                 {isActive && <span style={{fontSize:'var(--font-micro)',background:'var(--color-success)',color:'white',padding:'2px 7px',borderRadius:'999px',fontWeight:'var(--fw-semibold)'}}>Active</span>}
+                                                <button title="Edit" onClick={() => { setPmEditProjectId(pid); setPmEditName(proj.name); setPmEditLocation(proj.location||''); setPmEditAssetMix(proj.assetMix||[]); setPmEditStatus(proj.status||'Draft'); setPmModal('editProject'); }}
+                                                    style={{background:'#F0FDF4',border:'none',color:'#166534',borderRadius:'5px',padding:'4px 7px',cursor:'pointer',fontSize:'var(--font-meta)'}}>✏️</button>
                                                 <button title="Duplicate" onClick={() => duplicateProject(pid)}
                                                     style={{background:'#EFF6FF',border:'none',color:'#2563eb',borderRadius:'5px',padding:'4px 7px',cursor:'pointer',fontSize:'var(--font-meta)'}}>📋</button>
                                                 {proj.status !== 'Archived' && (
@@ -3540,9 +3625,115 @@
                                         </div>
                                         );
                                     })}
+                                    {archivedModalProjects.length > 0 && (
+                                        <div style={{marginTop:'8px',paddingTop:'8px',borderTop:'1px solid var(--color-border)'}}>
+                                            <div style={{fontSize:'var(--font-micro)',fontWeight:'var(--fw-bold)',color:'var(--color-muted)',textTransform:'uppercase',letterSpacing:'0.07em',padding:'4px 8px',marginBottom:'4px'}}>Archived</div>
+                                            {archivedModalProjects.map(([pid, proj]) => {
+                                                const vCount = Object.keys(proj.versions||{}).length;
+                                                return (
+                                                <div key={pid} className="pm-project-card" style={{opacity:0.6,cursor:'pointer'}}
+                                                    onClick={() => { const vIds=Object.keys(proj.versions||{}); if(vIds.length) switchToVersion(pid,vIds[0]); }}>
+                                                    <div style={{flex:1}}>
+                                                        <div style={{fontWeight:'var(--fw-semibold)',color:'var(--color-meta)',fontSize:'var(--font-body)'}}>{proj.name}</div>
+                                                        <div style={{fontSize:'var(--font-micro)',color:'var(--color-muted)'}}>{vCount} version{vCount!==1?'s':''}</div>
+                                                    </div>
+                                                    <div style={{display:'flex',gap:'4px'}} onClick={e=>e.stopPropagation()}>
+                                                        <button onClick={() => changeProjectStatus(pid,'Draft')} style={{background:'#F0FDF4',border:'none',color:'#166534',borderRadius:'5px',padding:'3px 8px',cursor:'pointer',fontSize:'var(--font-micro)',fontWeight:'var(--fw-semibold)'}}>Restore</button>
+                                                        <button onClick={() => deleteProject(pid)} style={{background:'#FEF2F2',border:'none',color:'#dc2626',borderRadius:'5px',padding:'4px 7px',cursor:'pointer',fontSize:'var(--font-meta)'}}>🗑️</button>
+                                                    </div>
+                                                </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    </>
+                                    )}
                                 </div>
                                 <div className="pm-modal-footer">
                                     <button onClick={() => setPmModal(null)} style={{padding:'var(--sp-1) var(--sp-2)',border:'1px solid #d1d5db',borderRadius:'var(--radius-sm)',background:'white',cursor:'pointer',fontSize:'var(--font-body)'}}>Close</button>
+                                </div>
+                            </div>
+                        </div>
+                        );
+                    })()}
+
+                    {/* ===== EDIT PROJECT MODAL ===== */}
+                    {pmModal === 'editProject' && (() => {
+                        const ALL_ASSET_TYPES = ['Residential','Hospitality','Retail','Office','Industrial','Mixed-Use'];
+                        const ALL_STATUSES = ['Draft','Active','IC Review','Approved','Archived'];
+                        const statusColors2 = {Draft:'#6B7280',Active:'#10B981','IC Review':'#F59E0B',Approved:'#3B82F6',Archived:'#9CA3AF'};
+                        return (
+                        <div className="pm-modal-overlay" onClick={() => setPmModal(null)}>
+                            <div className="pm-modal" style={{maxWidth:'520px'}} onClick={e => e.stopPropagation()}>
+                                <div className="pm-modal-header">
+                                    <span style={{fontWeight:'var(--fw-bold)',fontSize:'var(--font-section)'}}>✏️ Edit Project</span>
+                                    <button onClick={() => setPmModal(null)} style={{background:'none',border:'none',color:'white',cursor:'pointer',fontSize:'1.2rem'}}>✕</button>
+                                </div>
+                                <div className="pm-modal-body" style={{display:'flex',flexDirection:'column',gap:'var(--sp-2)'}}>
+                                    {/* Name */}
+                                    <div>
+                                        <label style={{display:'block',fontSize:'var(--font-meta)',fontWeight:'var(--fw-semibold)',color:'var(--color-body)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Project Name</label>
+                                        <input type="text" value={pmEditName} onChange={e => setPmEditName(e.target.value)}
+                                            placeholder="e.g. Skyline Tower"
+                                            style={{width:'100%',padding:'0.55rem 0.75rem',border:'1.5px solid #d1d5db',borderRadius:'var(--radius-sm)',fontSize:'var(--font-body)',outline:'none',boxSizing:'border-box'}}
+                                            onKeyDown={e=>{ if(e.key==='Enter' && pmEditName.trim()) updateProjectMeta(pmEditProjectId, pmEditName.trim(), pmEditLocation, pmEditAssetMix, pmEditStatus); }}
+                                        />
+                                    </div>
+                                    {/* Location */}
+                                    <div>
+                                        <label style={{display:'block',fontSize:'var(--font-meta)',fontWeight:'var(--fw-semibold)',color:'var(--color-body)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Location</label>
+                                        <input type="text" value={pmEditLocation} onChange={e => setPmEditLocation(e.target.value)}
+                                            placeholder="e.g. Riyadh, Saudi Arabia"
+                                            style={{width:'100%',padding:'0.55rem 0.75rem',border:'1.5px solid #d1d5db',borderRadius:'var(--radius-sm)',fontSize:'var(--font-body)',outline:'none',boxSizing:'border-box'}}
+                                        />
+                                    </div>
+                                    {/* Status */}
+                                    <div>
+                                        <label style={{display:'block',fontSize:'var(--font-meta)',fontWeight:'var(--fw-semibold)',color:'var(--color-body)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Status</label>
+                                        <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+                                            {ALL_STATUSES.map(s => {
+                                                const sc = statusColors2[s]||'#6B7280';
+                                                const isSelected = pmEditStatus === s;
+                                                return (
+                                                    <button key={s} onClick={() => setPmEditStatus(s)} style={{
+                                                        padding:'5px 14px',borderRadius:'999px',cursor:'pointer',
+                                                        fontSize:'var(--font-meta)',fontWeight:'var(--fw-semibold)',
+                                                        border: isSelected ? `2px solid ${sc}` : `1px solid ${sc}44`,
+                                                        background: isSelected ? sc+'22' : 'white',
+                                                        color: sc,
+                                                        transition:'all 0.15s',
+                                                    }}>{s}</button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    {/* Asset Mix */}
+                                    <div>
+                                        <label style={{display:'block',fontSize:'var(--font-meta)',fontWeight:'var(--fw-semibold)',color:'var(--color-body)',marginBottom:'6px',textTransform:'uppercase',letterSpacing:'0.05em'}}>Asset Mix</label>
+                                        <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                                            {ALL_ASSET_TYPES.map(a => {
+                                                const sel = pmEditAssetMix.includes(a);
+                                                return (
+                                                    <button key={a} onClick={() => setPmEditAssetMix(prev => sel ? prev.filter(x=>x!==a) : [...prev, a])}
+                                                        style={{
+                                                            padding:'5px 12px',borderRadius:'var(--radius-sm)',cursor:'pointer',
+                                                            fontSize:'var(--font-meta)',fontWeight:'var(--fw-semibold)',
+                                                            border: sel ? '2px solid var(--color-primary)' : '1.5px solid #d1d5db',
+                                                            background: sel ? '#EFF6FF' : 'white',
+                                                            color: sel ? 'var(--color-primary)' : 'var(--color-meta)',
+                                                            transition:'all 0.15s',
+                                                        }}>{a}</button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="pm-modal-footer">
+                                    <button onClick={() => setPmModal(null)} style={{padding:'var(--sp-1) var(--sp-2)',border:'1px solid #d1d5db',borderRadius:'var(--radius-sm)',background:'white',cursor:'pointer',fontSize:'var(--font-body)'}}>Cancel</button>
+                                    <button onClick={() => { if(pmEditName.trim()) updateProjectMeta(pmEditProjectId, pmEditName.trim(), pmEditLocation, pmEditAssetMix, pmEditStatus); }}
+                                        style={{padding:'var(--sp-1) var(--sp-2)',background:'var(--color-primary)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:'var(--font-body)',fontWeight:'var(--fw-semibold)'}}>
+                                        Save Changes
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -3557,8 +3748,18 @@
                             <div className="pm-modal-overlay" onClick={() => setPmModal(null)}>
                                 <div className="pm-modal" onClick={e=>e.stopPropagation()}>
                                     <div className="pm-modal-header"><span>Versions</span><button onClick={()=>setPmModal(null)} style={{background:'none',border:'none',color:'white',cursor:'pointer',fontSize:'1.2rem'}}>✕</button></div>
-                                    <div className="pm-modal-body"><p style={{color:'var(--color-meta)',textAlign:'center',padding:'var(--sp-3)'}}>Save your project first to manage versions.</p></div>
-                                    <div className="pm-modal-footer"><button onClick={()=>{setPmInputVal('');setPmLocationVal('');setPmAssetMix([]);setPmModal('newProject');}} style={{padding:'var(--sp-1) var(--sp-2)',background:'var(--color-primary)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:'var(--font-body)',fontWeight:'var(--fw-semibold)'}}>Create New Project</button></div>
+                                    <div className="pm-modal-body">
+                                        <div style={{textAlign:'center',padding:'var(--sp-3)'}}>
+                                            <div style={{fontSize:'2.5rem',marginBottom:'var(--sp-1)'}}>💾</div>
+                                            <p style={{fontWeight:'var(--fw-semibold)',color:'var(--color-primary-deep)',marginBottom:'8px'}}>No project selected</p>
+                                            <p style={{color:'var(--color-meta)',fontSize:'var(--font-meta)'}}>Create or open a project first to manage versions.</p>
+                                        </div>
+                                    </div>
+                                    <div className="pm-modal-footer">
+                                        <button onClick={()=>setPmModal(null)} style={{padding:'var(--sp-1) var(--sp-2)',border:'1px solid #d1d5db',borderRadius:'var(--radius-sm)',background:'white',cursor:'pointer',fontSize:'var(--font-body)'}}>Cancel</button>
+                                        <button onClick={()=>{setPmModal(null);setActiveModule('projects');}} style={{padding:'var(--sp-1) var(--sp-2)',background:'var(--color-primary)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:'var(--font-body)',fontWeight:'var(--fw-semibold)'}}>Go to Projects</button>
+                                        <button onClick={()=>{setPmInputVal('');setPmLocationVal('');setPmAssetMix([]);setPmModal('newProject');}} style={{padding:'var(--sp-1) var(--sp-2)',background:'var(--color-success)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:'var(--font-body)',fontWeight:'var(--fw-semibold)'}}>+ New Project</button>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -3691,6 +3892,7 @@
                         };
                         const rows = [
                             {label:'Project Type', key:'projectType'},
+                            {label:'Asset Mix', key:'assetMix'},
                             {label:'Currency', key:'currency'},
                             {label:'Model Type', key:'modelType'},
                             {label:'Project Start', key:'projectStart'},
@@ -3794,11 +3996,14 @@
                             const ver = proj?.versions[activeVersionId];
                             return (<>
                             <div className="sb-pv-panel">
-                                <div className="sb-pv-row" onClick={() => { setPmInputVal(''); setPmModal('projects'); }}>
+                                <div className="sb-pv-row" onClick={() => setActiveModule('projects')}>
                                     <span className="sb-pv-dot sb-pv-dot-proj"></span>
                                     <div className="sb-pv-content">
                                         <div className="sb-pv-eyebrow">Project</div>
                                         <div className="sb-pv-name">{proj?.name || '— unsaved —'}</div>
+                                        {proj?.status && proj.status !== 'Draft' && (
+                                            <div style={{fontSize:'8px',fontWeight:'700',marginTop:'2px',color: proj.status==='Active'?'#34d399':proj.status==='Approved'?'#a3e635':proj.status==='Archived'?'rgba(255,255,255,0.3)':'#fbbf24',textTransform:'uppercase',letterSpacing:'0.06em'}}>{proj.status}</div>
+                                        )}
                                     </div>
                                     <span className="sb-pv-arrow">▸</span>
                                 </div>
@@ -3814,7 +4019,7 @@
                             {/* Collapsed state: two icon pills with tooltips */}
                             <div className="sb-pv-collapsed">
                                 <div className="sidebar-item-wrap">
-                                    <button className="sb-pv-collapsed-pill" title="Projects" onClick={() => { setPmInputVal(''); setPmModal('projects'); }}>🏗️</button>
+                                    <button className="sb-pv-collapsed-pill" title="Projects" onClick={() => setActiveModule('projects')}>🏗️</button>
                                     <div className="sidebar-tooltip">{proj?.name || 'Projects'}</div>
                                 </div>
                                 <div className="sidebar-item-wrap">
@@ -3885,7 +4090,18 @@
                             {/* Left: Title */}
                             <div>
                                 <h1 style={{fontSize:"1.35rem",fontWeight:'var(--fw-bold)',letterSpacing:"-0.01em"}}>Real Estate Financial Modeling Platform</h1>
-                                <p style={{fontSize:"0.7rem",color:"var(--color-muted)",marginTop:"2px",letterSpacing:"0.02em"}}>Module 1: Project Setup & Financial Structure</p>
+                                <p style={{fontSize:"0.7rem",color:"var(--color-muted)",marginTop:"2px",letterSpacing:"0.02em"}}>{
+                                    activeModule === 'dashboard' ? 'Dashboard — Projects & Activity Overview' :
+                                    activeModule === 'projects'  ? 'Projects — Manage & Switch Active Project' :
+                                    activeModule === 'overview'  ? 'Overview — Project Summary & Key Metrics' :
+                                    activeModule === 'module1'   ? 'Module 1: Project Setup & Financial Structure' :
+                                    activeModule === 'module2'   ? 'Module 2: Revenue & Sales Projections' :
+                                    activeModule === 'module3'   ? 'Module 3: Operating Expenses & Cash Flow' :
+                                    activeModule === 'module4'   ? 'Module 4: Returns & Valuation Analysis' :
+                                    activeModule === 'module5'   ? 'Module 5: Financial Statements' :
+                                    activeModule === 'module6'   ? 'Module 6: Reports & Visualizations' :
+                                    'Real Estate Financial Modeling Platform'
+                                }</p>
                             </div>
                             {/* Right: Logos + Name */}
                             <div style={{display:"flex", flexDirection:"column", alignItems:"flex-end", gap:"6px"}}>
@@ -3902,28 +4118,7 @@
                         </div>
                     </div>
 
-                    {/* Navigation */}
-                    <div className="bg-white shadow-sm border-b">
-                        <div className="container mx-auto px-6">
-                            <div style={{display:"flex",gap:0}}>
-                                {[['dashboard','Dashboard'],['projects','Projects'],['overview','Overview'],['module1','Module 1']].map(([key,label])=>(
-                                    <button key={key} onClick={()=>setActiveModule(key)}
-                                        style={{
-                                            padding:"0.85rem 1.5rem",
-                                            background:"transparent",
-                                            border:"none",
-                                            borderBottom: activeModule===key ? "3px solid #1E3A8A" : "3px solid transparent",
-                                            color: activeModule===key ? "var(--color-primary)" : "var(--color-body)",
-                                            fontWeight: activeModule===key ? 600 : 500,
-                                            fontSize:"0.88rem",
-                                            cursor:"pointer",
-                                            transition:"all 0.18s",
-                                        }}
-                                    >{label}</button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+
 
                     {/* ===== DASHBOARD MODULE ===== */}
                     {activeModule === 'dashboard' && (() => {
@@ -3931,7 +4126,7 @@
                         const allProjects = Object.entries(store.projects || {});
                         const activeProjects = allProjects.filter(([,p]) => p.status !== 'Archived');
                         const archivedProjects = allProjects.filter(([,p]) => p.status === 'Archived');
-                        const recentProjects = [...allProjects].sort((a,b) => new Date(b[1].lastModified||b[1].createdAt) - new Date(a[1].lastModified||a[1].createdAt)).slice(0,5);
+                        const recentProjects = [...allProjects].filter(([,p]) => p.status !== 'Archived').sort((a,b) => new Date(b[1].lastModified||b[1].createdAt) - new Date(a[1].lastModified||a[1].createdAt)).slice(0,5);
                         const kpiCard = (icon, label, value, color) => (
                             <div style={{background:'white',borderRadius:'var(--radius-md)',border:'1px solid #E5E7EB',boxShadow:'var(--shadow-1)',overflow:'hidden',minWidth:0}}>
                                 <div style={{height:'4px',background:color}}></div>
@@ -3943,7 +4138,7 @@
                             </div>
                         );
                         return (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
                             <div className="module-card p-8 mb-6">
                                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.75rem'}}>
                                     <div>
@@ -3957,11 +4152,27 @@
                                 </div>
 
                                 {/* KPI Row */}
-                                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'1rem',marginBottom:'2rem'}}>
+                                <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:'1rem',marginBottom:'2rem'}}>
                                     {kpiCard('📁','Total Projects', allProjects.length, '#6366F1')}
                                     {kpiCard('✅','Active Projects', activeProjects.length, '#10B981')}
                                     {kpiCard('📦','Archived', archivedProjects.length, '#F59E0B')}
-                                    {kpiCard('🏗️','Versions Modeled', allProjects.reduce((s,[,p])=>s+Object.keys(p.versions||{}).length,0), '#3B82F6')}
+                                    {kpiCard('🔖','Versions Modeled', activeProjects.reduce((s,[,p])=>s+Object.keys(p.versions||{}).length,0), '#3B82F6')}
+                                    {(() => {
+                                        // Aggregate total GDV across active projects' latest versions
+                                        let totalGDV = 0;
+                                        activeProjects.forEach(([,proj]) => {
+                                            const vers = Object.values(proj.versions || {});
+                                            if (!vers.length) return;
+                                            const latest = vers.sort((a,b) => new Date(b.savedAt||b.createdAt) - new Date(a.savedAt||a.createdAt))[0];
+                                            const d = latest?.data;
+                                            if (!d) return;
+                                            // TPDC = total land area × land value per sqm (rough proxy for total development cost / GDV placeholder)
+                                            const gfa = (d.totalLandArea||0) * (d.projectFAR||1.5);
+                                            totalGDV += gfa;
+                                        });
+                                        const fmt = (n) => n >= 1e6 ? (n/1e6).toFixed(1)+'M sqm' : n >= 1e3 ? (n/1e3).toFixed(0)+'K sqm' : n.toFixed(0)+' sqm';
+                                        return kpiCard('🏢','Total GFA Modeled', activeProjects.length > 0 ? fmt(totalGDV) : '—', '#8B5CF6');
+                                    })()}
                                 </div>
 
                                 {/* Recent Projects */}
@@ -3988,7 +4199,12 @@
                                             return (
                                                 <div key={pid} onClick={() => {
                                                     const vIds = Object.keys(proj.versions||{});
-                                                    if(vIds.length) { switchToVersion(pid, proj.versions[activeVersionId] ? activeVersionId : vIds[0]); setActiveModule('module1'); }
+                                                    if(vIds.length) {
+                                                        // Use the matching version if same project, otherwise use first version
+                                                        const targetVerId = (pid === activeProjectId && activeVersionId && proj.versions[activeVersionId]) ? activeVersionId : vIds[0];
+                                                        switchToVersion(pid, targetVerId);
+                                                        setActiveModule('module1');
+                                                    }
                                                 }} style={{display:'flex',alignItems:'center',gap:'1rem',padding:'0.85rem 1rem',background: isActive ? '#EFF6FF':'white',border:`1px solid ${isActive?'#BFDBFE':'#E5E7EB'}`,borderRadius:'var(--radius-sm)',cursor:'pointer',transition:'all 0.15s'}}>
                                                     <div style={{flex:1,minWidth:0}}>
                                                         <div style={{fontWeight:'var(--fw-semibold)',color:'var(--color-primary-deep)',fontSize:'var(--font-body)',marginBottom:'2px'}}>{proj.name}</div>
@@ -4014,6 +4230,8 @@
 
                     {/* ===== PROJECTS SCREEN MODULE ===== */}
                     {activeModule === 'projects' && (() => {
+                        // eslint-disable-next-line no-unused-expressions
+                        projectsRenderKey; // read key to force re-render on status changes
                         const store = loadStorage();
                         const allProjects = Object.entries(store.projects || {});
                         const statusColors = {Draft:'#6B7280',Active:'#10B981','IC Review':'#F59E0B',Approved:'#3B82F6',Archived:'#9CA3AF'};
@@ -4024,14 +4242,12 @@
                             s.projects[pid].lastModified = new Date().toISOString();
                             saveStorage(s);
                             showToast('📦 Project archived', '#F59E0B');
-                            setActiveModule('projects'); // trigger re-render
-                            // force re-render by dummy state update
-                            setPmModal(null);
+                            setProjectsRenderKey(k => k + 1); // force re-render without side-navigating
                         };
                         return (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
                             <div className="module-card p-8 mb-6">
-                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.75rem'}}>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem'}}>
                                     <div>
                                         <h2 style={{fontSize:'1.4rem',fontWeight:'var(--fw-bold)',color:'var(--color-primary-deep)',marginBottom:'0.25rem'}}>All Projects</h2>
                                         <p style={{fontSize:'var(--font-meta)',color:'var(--color-meta)'}}>{allProjects.length} project{allProjects.length!==1?'s':''} total</p>
@@ -4041,6 +4257,28 @@
                                         + New Project
                                     </button>
                                 </div>
+
+                                {/* Search & Filter bar */}
+                                {allProjects.length > 0 && (
+                                    <div style={{display:'flex',gap:'0.75rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
+                                        <input type="text" value={projectSearch} onChange={e => setProjectSearch(e.target.value)}
+                                            placeholder="🔍  Search projects by name or location…"
+                                            style={{flex:'1',minWidth:'200px',padding:'0.5rem 0.75rem',border:'1px solid #D1D5DB',borderRadius:'var(--radius-sm)',fontSize:'var(--font-body)',background:'white',outline:'none'}}
+                                        />
+                                        <select value={projectStatusFilter} onChange={e => setProjectStatusFilter(e.target.value)}
+                                            style={{padding:'0.5rem 0.75rem',border:'1px solid #D1D5DB',borderRadius:'var(--radius-sm)',fontSize:'var(--font-body)',background:'white',cursor:'pointer'}}>
+                                            <option value="all">All Statuses</option>
+                                            {['Draft','Active','IC Review','Approved','Archived'].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                        <select value={projectSort} onChange={e => setProjectSort(e.target.value)}
+                                            style={{padding:'0.5rem 0.75rem',border:'1px solid #D1D5DB',borderRadius:'var(--radius-sm)',fontSize:'var(--font-body)',background:'white',cursor:'pointer'}}>
+                                            <option value="modified">Sort: Last Modified</option>
+                                            <option value="created">Sort: Date Created</option>
+                                            <option value="name">Sort: Name (A–Z)</option>
+                                            <option value="versions">Sort: Most Versions</option>
+                                        </select>
+                                    </div>
+                                )}
 
                                 {allProjects.length === 0 ? (
                                     <div style={{textAlign:'center',padding:'3rem 1rem',background:'#F9FAFB',borderRadius:'var(--radius-md)',border:'2px dashed #D1D5DB'}}>
@@ -4062,7 +4300,25 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {allProjects.sort((a,b)=>new Date(b[1].lastModified||b[1].createdAt)-new Date(a[1].lastModified||a[1].createdAt)).map(([pid,proj]) => {
+                                            {(() => {
+                                                let filtered = allProjects;
+                                                if (projectSearch.trim()) {
+                                                    const q = projectSearch.trim().toLowerCase();
+                                                    filtered = filtered.filter(([,p]) => (p.name||'').toLowerCase().includes(q) || (p.location||'').toLowerCase().includes(q));
+                                                }
+                                                if (projectStatusFilter !== 'all') {
+                                                    filtered = filtered.filter(([,p]) => (p.status||'Draft') === projectStatusFilter);
+                                                }
+                                                filtered = filtered.sort((a,b) => {
+                                                    if (projectSort === 'name') return (a[1].name||'').localeCompare(b[1].name||'');
+                                                    if (projectSort === 'created') return new Date(b[1].createdAt) - new Date(a[1].createdAt);
+                                                    if (projectSort === 'versions') return Object.keys(b[1].versions||{}).length - Object.keys(a[1].versions||{}).length;
+                                                    return new Date(b[1].lastModified||b[1].createdAt) - new Date(a[1].lastModified||a[1].createdAt);
+                                                });
+                                                if (filtered.length === 0) return (
+                                                    <tr><td colSpan="6" style={{padding:'2rem',textAlign:'center',color:'var(--color-muted)',fontSize:'var(--font-body)'}}>No projects match your search.</td></tr>
+                                                );
+                                                return filtered.map(([pid,proj]) => {
                                                 const isActive = pid === activeProjectId;
                                                 const vCount = Object.keys(proj.versions||{}).length;
                                                 const sColor = statusColors[proj.status]||'#6B7280';
@@ -4077,7 +4333,23 @@
                                                     </td>
                                                     <td style={{padding:'0.75rem',color:'var(--color-meta)',fontSize:'var(--font-meta)'}}>{proj.location||'—'}</td>
                                                     <td style={{padding:'0.75rem'}}>
-                                                        <span style={{fontSize:'var(--font-micro)',fontWeight:'var(--fw-semibold)',color:sColor,background:sColor+'18',padding:'2px 8px',borderRadius:'999px'}}>{proj.status||'Draft'}</span>
+                                                        <select
+                                                            value={proj.status||'Draft'}
+                                                            onChange={e => changeProjectStatus(pid, e.target.value)}
+                                                            onClick={e => e.stopPropagation()}
+                                                            style={{
+                                                                fontSize:'var(--font-micro)',fontWeight:'var(--fw-semibold)',
+                                                                color: (statusColors[proj.status]||'#6B7280'),
+                                                                background: (statusColors[proj.status]||'#6B7280')+'18',
+                                                                border:`1px solid ${(statusColors[proj.status]||'#6B7280')}44`,
+                                                                padding:'2px 6px',borderRadius:'999px',cursor:'pointer',
+                                                                outline:'none',
+                                                            }}
+                                                        >
+                                                            {['Draft','Active','IC Review','Approved','Archived'].map(s => (
+                                                                <option key={s} value={s}>{s}</option>
+                                                            ))}
+                                                        </select>
                                                     </td>
                                                     <td style={{padding:'0.75rem',color:'var(--color-meta)',fontSize:'var(--font-meta)',textAlign:'center'}}>{vCount}</td>
                                                     <td style={{padding:'0.75rem',color:'var(--color-meta)',fontSize:'var(--font-meta)'}}>{new Date(modified).toLocaleDateString()}</td>
@@ -4085,8 +4357,20 @@
                                                         <div style={{display:'flex',gap:'4px'}}>
                                                             <button title="Open" onClick={() => {
                                                                 const vIds = Object.keys(proj.versions||{});
-                                                                if(vIds.length) { switchToVersion(pid, proj.versions[activeVersionId]?activeVersionId:vIds[0]); setActiveModule('module1'); }
+                                                                if(vIds.length) {
+                                                                    const targetVerId = (pid === activeProjectId && activeVersionId && proj.versions[activeVersionId]) ? activeVersionId : vIds[0];
+                                                                    switchToVersion(pid, targetVerId);
+                                                                    setActiveModule('module1');
+                                                                }
                                                             }} style={{background:'#EFF6FF',border:'none',color:'#2563eb',borderRadius:'5px',padding:'4px 8px',cursor:'pointer',fontSize:'var(--font-meta)',fontWeight:'var(--fw-semibold)'}}>Open</button>
+                                                            <button title="Edit project details" onClick={() => {
+                                                                setPmEditProjectId(pid);
+                                                                setPmEditName(proj.name);
+                                                                setPmEditLocation(proj.location||'');
+                                                                setPmEditAssetMix(proj.assetMix||[]);
+                                                                setPmEditStatus(proj.status||'Draft');
+                                                                setPmModal('editProject');
+                                                            }} style={{background:'#F0FDF4',border:'none',color:'#166534',borderRadius:'5px',padding:'4px 8px',cursor:'pointer',fontSize:'var(--font-meta)',fontWeight:'var(--fw-semibold)'}}>✏️ Edit</button>
                                                             <button title="Duplicate" onClick={() => duplicateProject(pid)}
                                                                 style={{background:'#F3F4F6',border:'none',color:'#374151',borderRadius:'5px',padding:'4px 7px',cursor:'pointer',fontSize:'var(--font-meta)'}}>📋</button>
                                                             {proj.status !== 'Archived' && (
@@ -4099,7 +4383,8 @@
                                                     </td>
                                                 </tr>
                                                 );
-                                            })}
+                                            })
+                                            })()}
                                         </tbody>
                                     </table>
                                 )}
@@ -4110,7 +4395,19 @@
 
                     {/* Module 1 Content */}
                     {activeModule === 'overview' && (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
+                            {!activeProjectId && (
+                                <div style={{textAlign:'center',padding:'4rem 2rem',background:'white',borderRadius:'var(--radius-md)',border:'2px dashed #D1D5DB',margin:'2rem'}}>
+                                    <div style={{fontSize:'3rem',marginBottom:'1rem'}}>📊</div>
+                                    <h3 style={{fontSize:'1.15rem',fontWeight:'var(--fw-bold)',color:'var(--color-primary-deep)',marginBottom:'0.5rem'}}>No Project Selected</h3>
+                                    <p style={{fontSize:'var(--font-meta)',color:'var(--color-meta)',marginBottom:'1.5rem'}}>Select or create a project to view its overview metrics.</p>
+                                    <div style={{display:'flex',gap:'0.75rem',justifyContent:'center'}}>
+                                        <button onClick={() => setActiveModule('projects')} style={{padding:'0.6rem 1.25rem',background:'var(--color-primary)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontWeight:'var(--fw-semibold)',fontSize:'var(--font-body)'}}>Go to Projects</button>
+                                        <button onClick={() => { setPmInputVal(''); setPmLocationVal(''); setPmAssetMix([]); setPmModal('newProject'); }} style={{padding:'0.6rem 1.25rem',background:'white',color:'var(--color-primary)',border:'1px solid var(--color-primary)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontWeight:'var(--fw-semibold)',fontSize:'var(--font-body)'}}>+ New Project</button>
+                                    </div>
+                                </div>
+                            )}
+                            {activeProjectId && (<>
                             {/* Project Overview Dashboard */}
                             <div className="module-card p-8 mb-8">
                                 <h2 style={{fontSize:"1.3rem",fontWeight:'var(--fw-semibold)',color:"var(--color-primary-deep)",marginBottom:"1.5rem"}}>Project Overview</h2>
@@ -4294,11 +4591,12 @@
                                 </div>
                             </div>
                         </div>
+                        </>)}
                     )}
 
                     {/* Module 1 Detailed View */}
                     {activeModule === 'module1' && !activeProjectId && (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
                             <div style={{textAlign:'center',padding:'4rem 2rem',background:'white',borderRadius:'var(--radius-md)',border:'2px dashed #D1D5DB',marginBottom:'2rem'}}>
                                 <div style={{fontSize:'3rem',marginBottom:'1rem'}}>📋</div>
                                 <h3 style={{fontSize:'1.15rem',fontWeight:'var(--fw-bold)',color:'var(--color-primary-deep)',marginBottom:'0.5rem'}}>Select a project to begin modeling</h3>
@@ -4317,7 +4615,7 @@
                         </div>
                     )}
                     {activeModule === 'module1' && activeProjectId && (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
                             {/* Sub Navigation */}
                             <div className="sticky-nav" style={{borderRadius:0,padding:"0 0.5rem",marginBottom:"1.5rem",display:"flex",gap:0}}>
                                 <button
@@ -4405,6 +4703,8 @@
                                                     value={projectName}
                                                     onChange={(e) => setProjectName(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                    data-project-id={activeProjectId}
+                                                    data-field-key="projectName"
                                                 />
                                             </div>
                                             <div>
@@ -4497,6 +4797,8 @@
                                                     value={currency}
                                                     onChange={(e) => setCurrency(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                    data-project-id={activeProjectId}
+                                                    data-field-key="currency"
                                                 >
                                                     <optgroup label="Middle East">
                                                         <option value="SAR">SAR — Saudi Riyal</option>
@@ -4548,6 +4850,8 @@
                                                     value={projectStart}
                                                     onChange={(e) => setProjectStart(e.target.value)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                    data-project-id={activeProjectId}
+                                                    data-field-key="projectStart"
                                                 />
                                             </div>
                                             <div>
@@ -4559,6 +4863,8 @@
                                                     value={constructionPeriods}
                                                     onChange={(e) => setConstructionPeriods(parseInt(e.target.value) || 0)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                    data-project-id={activeProjectId}
+                                                    data-field-key="constructionPeriods"
                                                 />
                                             </div>
                                             <div>
@@ -4570,6 +4876,8 @@
                                                     value={operationsPeriods}
                                                     onChange={(e) => setOperationsPeriods(parseInt(e.target.value) || 0)}
                                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                    data-project-id={activeProjectId}
+                                                    data-field-key="operationsPeriods"
                                                 />
                                             </div>
                                         </div>
@@ -4636,7 +4944,8 @@
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">Land Value (per sqm) — {currency}</label>
                                                     <input type="number" value={landValuePerSqm}
                                                         onChange={(e) => setLandValuePerSqm(parseFloat(e.target.value) || 0)}
-                                                        className="input-assumption w-full px-4 py-2 border rounded-lg" />
+                                                        className="input-assumption w-full px-4 py-2 border rounded-lg"
+                                                        data-project-id={activeProjectId} data-field-key="landValuePerSqm" />
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">Cash % / In-Kind %</label>
@@ -4644,11 +4953,13 @@
                                                         <input type="number" value={cashPercent}
                                                             onChange={(e) => { const v = parseFloat(e.target.value)||0; setCashPercent(v); setInKindPercent(100-v); }}
                                                             className="input-assumption w-full px-4 py-2 border rounded-lg" min="0" max="100"
-                                                            placeholder="Cash %" />
+                                                            placeholder="Cash %"
+                                                            data-project-id={activeProjectId} data-field-key="cashPercent" />
                                                         <input type="number" value={inKindPercent}
                                                             onChange={(e) => { const v = parseFloat(e.target.value)||0; setInKindPercent(v); setCashPercent(100-v); }}
                                                             className="input-assumption w-full px-4 py-2 border rounded-lg" min="0" max="100"
-                                                            placeholder="In-Kind %" />
+                                                            placeholder="In-Kind %"
+                                                            data-project-id={activeProjectId} data-field-key="inKindPercent" />
                                                     </div>
                                                 </div>
                                             </div>
@@ -4659,14 +4970,16 @@
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">Total Land Area (sqm)</label>
                                                     <input type="number" value={totalLandArea}
                                                         onChange={(e) => setTotalLandArea(parseFloat(e.target.value) || 0)}
-                                                        className="input-assumption w-full px-4 py-2 border rounded-lg" />
+                                                        className="input-assumption w-full px-4 py-2 border rounded-lg"
+                                                        data-project-id={activeProjectId} data-field-key="totalLandArea" />
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">Roads & Open Area %</label>
                                                     <div className="flex items-center gap-2">
                                                         <input type="number" value={projectRoadsPct} step="1" min="0" max="100"
                                                             onChange={(e) => setProjectRoadsPct(parseFloat(e.target.value) || 0)}
-                                                            className="input-assumption w-full px-4 py-2 border rounded-lg" />
+                                                            className="input-assumption w-full px-4 py-2 border rounded-lg"
+                                                            data-project-id={activeProjectId} data-field-key="projectRoadsPct" />
                                                         <span className="text-gray-500 font-medium">%</span>
                                                     </div>
                                                     <div className="text-xs text-gray-400 mt-1">= {formatNumber(projectRoadsArea)} sqm</div>
@@ -4675,7 +4988,8 @@
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">FAR (Floor Area Ratio)</label>
                                                     <input type="number" value={projectFAR} step="0.1"
                                                         onChange={(e) => setProjectFAR(parseFloat(e.target.value) || 0)}
-                                                        className="input-assumption w-full px-4 py-2 border rounded-lg" />
+                                                        className="input-assumption w-full px-4 py-2 border rounded-lg"
+                                                        data-project-id={activeProjectId} data-field-key="projectFAR" />
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-3 gap-4 mb-5">
@@ -6000,7 +6314,8 @@
                                                             <label className="block text-xs text-gray-600 mb-1">Debt %</label>
                                                             <input type="number" min="0" max="100" value={globalDebtPct}
                                                                 onChange={e=>setGlobalDebtPct(Math.min(100,Math.max(0,parseFloat(e.target.value)||0)))}
-                                                                className="input-assumption w-full px-3 py-2 rounded border text-sm"/>
+                                                                className="input-assumption w-full px-3 py-2 rounded border text-sm"
+                                                                data-project-id={activeProjectId} data-field-key="globalDebtPct"/>
                                                         </div>
                                                         <div className="flex-1">
                                                             <label className="block text-xs text-gray-600 mb-1">Equity %</label>
@@ -6023,7 +6338,8 @@
                                                         <label className="block text-xs text-gray-600 mb-1">Annual Interest Rate (%)</label>
                                                         <input type="number" min="0" max="100" step="0.1" value={interestRate}
                                                             onChange={e=>setInterestRate(parseFloat(e.target.value)||0)}
-                                                            className="input-assumption w-full px-3 py-2 rounded border text-sm"/>
+                                                            className="input-assumption w-full px-3 py-2 rounded border text-sm"
+                                                            data-project-id={activeProjectId} data-field-key="interestRate"/>
                                                     </div>
                                                     <div className="flex-1">
                                                         <label className="block text-xs text-gray-600 mb-1">Periodic Rate ({modelType==='monthly'?'Monthly':'Annual'})</label>
@@ -6075,7 +6391,8 @@
                                                         max={operationsPeriods}
                                                         value={repaymentPeriods}
                                                         onChange={e => setRepaymentPeriods(Math.min(operationsPeriods, Math.max(1, parseInt(e.target.value)||1)))}
-                                                        className="input-assumption w-full px-3 py-2 rounded border text-sm"/>
+                                                        className="input-assumption w-full px-3 py-2 rounded border text-sm"
+                                                        data-project-id={activeProjectId} data-field-key="repaymentPeriods"/>
                                                     <p className="text-xs text-gray-400 mt-1">
                                                         Max: {operationsPeriods} {modelType==='monthly'?'months':'years'} (full ops phase)
                                                     </p>
