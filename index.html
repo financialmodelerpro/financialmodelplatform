@@ -804,10 +804,11 @@
             const [countrySearch, setCountrySearch] = useState('');
             const [countryOpen, setCountryOpen] = useState(false);
             const [currency, setCurrency] = useState('SAR');
-            const [modelType, setModelType] = useState('monthly');
+            const [modelType, setModelType] = useState('annual');
             const [projectStart, setProjectStart] = useState('2025-01-01');
-            const [constructionPeriods, setConstructionPeriods] = useState(24);
-            const [operationsPeriods, setOperationsPeriods] = useState(60);
+            const [constructionPeriods, setConstructionPeriods] = useState(4);
+            const [operationsPeriods, setOperationsPeriods] = useState(5);
+            const [overlapPeriods, setOverlapPeriods] = useState(0);
             
             // Handle model type change with auto-conversion
             const handleModelTypeChange = (newType) => {
@@ -850,9 +851,11 @@
                 if (modelType === 'monthly' && newType === 'annual') {
                     setConstructionPeriods(Math.round(constructionPeriods / 12));
                     setOperationsPeriods(Math.round(operationsPeriods / 12));
+                    setOverlapPeriods(Math.round(overlapPeriods / 12));
                 } else if (modelType === 'annual' && newType === 'monthly') {
                     setConstructionPeriods(constructionPeriods * 12);
                     setOperationsPeriods(operationsPeriods * 12);
+                    setOverlapPeriods(overlapPeriods * 12);
                 }
                 setResidentialCosts(convertCosts);
                 setHospitalityCosts(convertCosts);
@@ -861,10 +864,10 @@
             };
             
             // Land & Area
-            const [cashPercent, setCashPercent] = useState(60);
-            const [inKindPercent, setInKindPercent] = useState(40);
-            const [totalLandArea, setTotalLandArea] = useState(100000);
-            const [landValuePerSqm, setLandValuePerSqm] = useState(500);
+            // Multi-parcel land inputs
+            const [landParcels, setLandParcels] = useState([
+                { id: 1, name: 'Land 1', area: 100000, rate: 500, cashPct: 60, inKindPct: 40 }
+            ]);
 
             // ── PROJECT-LEVEL DENSITY CONTROLS ──
             const [projectRoadsPct, setProjectRoadsPct] = useState(10);
@@ -1065,19 +1068,25 @@
                         cost.id === 1 ? { ...cost, value: landVal } : cost
                     ));
                 }
-            }, [totalLandArea, landValuePerSqm, cashPercent, residentialPercent, costInputMode]);
+            }, [landParcels, residentialPercent, costInputMode]);
             
             // Calculations
-            const totalLandValue = totalLandArea * landValuePerSqm;
-            const cashValue = (totalLandValue * cashPercent) / 100;
-            const inKindValue = (totalLandValue * inKindPercent) / 100;
+            // Derive aggregates from multi-parcel land
+            const totalLandArea = landParcels.reduce((s, p) => s + (parseFloat(p.area) || 0), 0);
+            const landValuePerSqm = totalLandArea > 0 ? landParcels.reduce((s, p) => s + (parseFloat(p.area) || 0) * (parseFloat(p.rate) || 0), 0) / totalLandArea : 0;
+            const totalLandValue = landParcels.reduce((s, p) => s + (parseFloat(p.area) || 0) * (parseFloat(p.rate) || 0), 0);
+            const cashValue = landParcels.reduce((s, p) => s + (parseFloat(p.area) || 0) * (parseFloat(p.rate) || 0) * (parseFloat(p.cashPct) || 0) / 100, 0);
+            const inKindValue = landParcels.reduce((s, p) => s + (parseFloat(p.area) || 0) * (parseFloat(p.rate) || 0) * (parseFloat(p.inKindPct) || 0) / 100, 0);
+            const cashPercent = totalLandValue > 0 ? (cashValue / totalLandValue) * 100 : 0;
+            const inKindPercent = totalLandValue > 0 ? (inKindValue / totalLandValue) * 100 : 0;
             
             // Project end date calculation
             const calculateProjectEndDate = () => {
                 const startDate = new Date(projectStart);
+                const effectivePeriods = constructionPeriods + operationsPeriods - overlapPeriods;
                 const totalMonths = modelType === 'monthly' 
-                    ? constructionPeriods + operationsPeriods 
-                    : (constructionPeriods + operationsPeriods) * 12;
+                    ? effectivePeriods
+                    : effectivePeriods * 12;
                 
                 // Add months and subtract 1 day to get end of last month
                 const endDate = new Date(startDate);
@@ -1089,8 +1098,8 @@
             
             const projectEndDate = calculateProjectEndDate();
             const totalProjectYears = modelType === 'monthly' 
-                ? ((constructionPeriods + operationsPeriods) / 12).toFixed(1)
-                : (constructionPeriods + operationsPeriods);
+                ? ((constructionPeriods + operationsPeriods - overlapPeriods) / 12).toFixed(1)
+                : (constructionPeriods + operationsPeriods - overlapPeriods);
             
             // Determine which assets to show based on project type
             const showResidential = projectType === 'residential' || projectType === 'mixed-use';
@@ -1356,7 +1365,7 @@
                         : (totalLandArea * cashPercent / 100) * (hospitalityPercent / 100) * landValuePerSqm;
                     setHospitalityCosts(prev => prev.map(c => c.id === 1 ? {...c, value: v} : c));
                 }
-            }, [totalLandArea, landValuePerSqm, cashPercent, hospitalityPercent, costInputMode]);
+            }, [landParcels, hospitalityPercent, costInputMode]);
 
             // Initialize default retail costs
             useEffect(() => {
@@ -1386,7 +1395,7 @@
                         : (totalLandArea * cashPercent / 100) * (retailPercent / 100) * landValuePerSqm;
                     setRetailCosts(prev => prev.map(c => c.id === 1 ? {...c, value: v} : c));
                 }
-            }, [totalLandArea, landValuePerSqm, cashPercent, retailPercent, costInputMode]);
+            }, [landParcels, retailPercent, costInputMode]);
 
             // Hospitality CRUD
             const addHospitalityCost = () => {
@@ -1746,6 +1755,12 @@
             const [pmEditAssetMix, setPmEditAssetMix] = useState([]);
             const [pmEditStatus, setPmEditStatus] = useState('Draft');
 
+            // Projects screen search/filter/sort
+            const [projectSearch, setProjectSearch] = useState('');
+            const [projectStatusFilter, setProjectStatusFilter] = useState('all');
+            const [projectSort, setProjectSort] = useState('modified');
+            const [projectsRenderKey, setProjectsRenderKey] = useState(0);
+
             // ── helpers ──────────────────────────────────────────────────
             const showToast = (msg, color='var(--color-primary-deep)') => {
                 setPmToast({ msg, color });
@@ -1773,8 +1788,8 @@
                 version: 2,
                 savedAt: new Date().toISOString(),
                 projectName, projectType, country, currency, modelType,
-                projectStart, constructionPeriods, operationsPeriods,
-                cashPercent, inKindPercent, totalLandArea, landValuePerSqm,
+                projectStart, constructionPeriods, operationsPeriods, overlapPeriods,
+                landParcels,
                 projectRoadsPct, projectFAR, projectNonEnclosedPct,
                 residentialPercent, hospitalityPercent, retailPercent,
                 residentialDeductPct, residentialEfficiency,
@@ -1783,16 +1798,26 @@
                 interestRate, financingMode, globalDebtPct, capitalizeInterest,
                 lineRatios, repaymentPeriods, repaymentMethod,
                 residentialCosts, hospitalityCosts, retailCosts, nextCostId, costInputMode,
+                // #15: capture assetMix so version snapshots fully round-trip
+                assetMix: (() => {
+                    const store = loadStorage();
+                    return store.projects[activeProjectId]?.assetMix || [];
+                })(),
             });
 
             const applySnapshot = (snap) => {
                 if (!snap) return;
                 setProjectName(snap.projectName || 'Untitled'); setProjectType(snap.projectType || 'mixed-use');
                 setCountry(snap.country || 'Saudi Arabia'); setCurrency(snap.currency || 'SAR');
-                setModelType(snap.modelType || 'monthly'); setProjectStart(snap.projectStart || '2025-01-01');
-                setConstructionPeriods(snap.constructionPeriods || 24); setOperationsPeriods(snap.operationsPeriods || 60);
-                setCashPercent(snap.cashPercent ?? 60); setInKindPercent(snap.inKindPercent ?? 40);
-                setTotalLandArea(snap.totalLandArea || 100000); setLandValuePerSqm(snap.landValuePerSqm || 500);
+                setModelType(snap.modelType || 'annual'); setProjectStart(snap.projectStart || '2025-01-01');
+                setConstructionPeriods(snap.constructionPeriods || 4); setOperationsPeriods(snap.operationsPeriods || 5);
+                setOverlapPeriods(snap.overlapPeriods || 0);
+                if (snap.landParcels && snap.landParcels.length > 0) {
+                    setLandParcels(snap.landParcels);
+                } else {
+                    // Legacy migration: build single parcel from old fields
+                    setLandParcels([{ id: 1, name: 'Land 1', area: snap.totalLandArea || 100000, rate: snap.landValuePerSqm || 500, cashPct: snap.cashPercent ?? 60, inKindPct: snap.inKindPercent ?? 40 }]);
+                }
                 if (snap.projectRoadsPct !== undefined) setProjectRoadsPct(snap.projectRoadsPct);
                 if (snap.projectFAR !== undefined) setProjectFAR(snap.projectFAR);
                 if (snap.projectNonEnclosedPct !== undefined) setProjectNonEnclosedPct(snap.projectNonEnclosedPct);
@@ -1810,6 +1835,14 @@
                 setResidentialCosts(snap.residentialCosts || []); setHospitalityCosts(snap.hospitalityCosts || []);
                 setRetailCosts(snap.retailCosts || []); setNextCostId(snap.nextCostId || 13);
                 if (snap.costInputMode) setCostInputMode(snap.costInputMode);
+                // #15: write assetMix back to project-level meta so edit modal stays in sync
+                if (snap.assetMix && snap.assetMix.length > 0 && activeProjectId) {
+                    const store = loadStorage();
+                    if (store.projects[activeProjectId]) {
+                        store.projects[activeProjectId].assetMix = snap.assetMix;
+                        saveStorage(store);
+                    }
+                }
             };
 
             // ── project CRUD ──────────────────────────────────────────────
@@ -1865,8 +1898,8 @@
                 return () => clearTimeout(t);
             }, [
                 projectName, projectType, country, currency, modelType,
-                projectStart, constructionPeriods, operationsPeriods,
-                cashPercent, inKindPercent, totalLandArea, landValuePerSqm,
+                projectStart, constructionPeriods, operationsPeriods, overlapPeriods,
+                landParcels,
                 projectRoadsPct, projectFAR, projectNonEnclosedPct,
                 residentialPercent, hospitalityPercent, retailPercent,
                 residentialDeductPct, residentialEfficiency,
@@ -1891,9 +1924,9 @@
                         if (activeProjectId && activeVersionId) {
                             handleSaveProject();
                         } else {
-                            // No project yet — open Projects modal to name it
-                            setPmInputVal(projectName || 'New Project');
-                            setPmModal('projects');
+                            // No project yet — navigate to Projects screen to create one
+                            setActiveModule('projects');
+                            showToast('💡 Create a project first to save your work', 'var(--color-primary-deep)');
                         }
                     }
                 };
@@ -1979,6 +2012,20 @@
                 saveStorage(store);
                 setPmModal(null);
                 showToast('✏️ Project updated', 'var(--color-success)');
+                // #15: if editing the currently active project, re-derive projectType from new assetMix
+                if (projId === activeProjectId && assetMix && assetMix.length > 0) {
+                    const hasRes  = assetMix.some(a => a === 'Residential');
+                    const hasHosp = assetMix.some(a => a === 'Hospitality');
+                    const hasRet  = assetMix.some(a => a === 'Retail');
+                    let derived = projectType;
+                    if ((hasRes || hasRet) && hasHosp) derived = 'mixed-use';
+                    else if (hasRes && !hasHosp) derived = 'residential';
+                    else if (hasHosp && !hasRes && !hasRet) derived = 'hospitality';
+                    else if (assetMix.length > 1) derived = 'mixed-use';
+                    else derived = assetMix[0]?.toLowerCase() || projectType;
+                    if (derived !== projectType) setProjectType(derived);
+                }
+                setProjectsRenderKey(k => k + 1);
             };
 
             const changeProjectStatus = (projId, newStatus) => {
@@ -1989,7 +2036,8 @@
                 saveStorage(store);
                 const icons = { Draft: '📝', Active: '✅', 'IC Review': '🔍', Approved: '✔️', Archived: '📦' };
                 showToast(`${icons[newStatus]||'🔄'} Status → ${newStatus}`, 'var(--color-primary-deep)');
-                setActiveModule('projects'); // trigger re-render
+                // Force projects screen re-render regardless of current module
+                setProjectsRenderKey(k => k + 1);
             };
 
             // ── version CRUD ──────────────────────────────────────────────
@@ -1998,6 +2046,19 @@
                 if (!store.projects[projId]) return;
                 const verId = genId('ver');
                 const now = new Date().toISOString();
+                // Derive projectType from assetMix before saving snapshot
+                const mix = (store.projects[projId]?.assetMix) || [];
+                let derivedType = projectType; // keep existing if no mix
+                if (mix.length > 0) {
+                    const hasRes = mix.some(a => a === 'Residential');
+                    const hasHosp = mix.some(a => a === 'Hospitality');
+                    const hasRet = mix.some(a => a === 'Retail');
+                    if ((hasRes || hasRet) && hasHosp) derivedType = 'mixed-use';
+                    else if (hasRes && !hasHosp) derivedType = 'residential';
+                    else if (hasHosp && !hasRes) derivedType = 'hospitality';
+                    else if (mix.length > 1) derivedType = 'mixed-use';
+                    else derivedType = mix[0]?.toLowerCase() || projectType;
+                }
                 store.projects[projId].versions[verId] = {
                     name: name || 'New Version',
                     createdAt: now,
@@ -2008,6 +2069,8 @@
                 setLastSavedAt(now);
                 setPmModal(null);
                 showToast('✅ Version "' + name + '" created', 'var(--color-success)');
+                // Apply derived project type so Module 1 reflects the chosen asset mix
+                if (derivedType !== projectType) setProjectType(derivedType);
                 return verId;
             };
 
@@ -2089,9 +2152,8 @@
                 setProjectName('New Project'); setProjectType('mixed-use');
                 setCountry('Saudi Arabia'); setCurrency('SAR');
                 setModelType('monthly'); setProjectStart('2025-01-01');
-                setConstructionPeriods(24); setOperationsPeriods(60);
-                setCashPercent(60); setInKindPercent(40);
-                setTotalLandArea(100000); setLandValuePerSqm(500);
+                setConstructionPeriods(4); setOperationsPeriods(5); setOverlapPeriods(0);
+                setLandParcels([{ id: 1, name: 'Land 1', area: 100000, rate: 500, cashPct: 60, inKindPct: 40 }]);
                 setProjectRoadsPct(10); setProjectFAR(1.5); setProjectNonEnclosedPct(0);
                 setResidentialPercent(50); setHospitalityPercent(30); setRetailPercent(20);
                 setResidentialDeductPct(10); setResidentialEfficiency(85);
@@ -3858,6 +3920,7 @@
                             {label:'Global Debt %', key:'globalDebtPct', num:true},
                             {label:'Financing Mode', key:'financingMode'},
                             {label:'Repayment Periods', key:'repaymentPeriods', num:true},
+                            {label:'Asset Mix', key:'assetMix'},
                         ];
                         const dA = vA?.data || {};
                         const dB = vB?.data || {};
@@ -3911,7 +3974,7 @@
                                                     </td>
                                                 </tr>
                                                 );
-                                            })}
+                                            })()}
                                         </tbody>
                                     </table>
                                 </div>
@@ -3946,11 +4009,14 @@
                             const ver = proj?.versions[activeVersionId];
                             return (<>
                             <div className="sb-pv-panel">
-                                <div className="sb-pv-row" onClick={() => { setPmInputVal(''); setPmModal('projects'); }}>
+                                <div className="sb-pv-row" onClick={() => setActiveModule('projects')}>
                                     <span className="sb-pv-dot sb-pv-dot-proj"></span>
                                     <div className="sb-pv-content">
                                         <div className="sb-pv-eyebrow">Project</div>
                                         <div className="sb-pv-name">{proj?.name || '— unsaved —'}</div>
+                                        {proj?.status && proj.status !== 'Draft' && (
+                                            <div style={{fontSize:'8px',fontWeight:'700',marginTop:'2px',color: proj.status==='Active'?'#34d399':proj.status==='Approved'?'#a3e635':proj.status==='Archived'?'rgba(255,255,255,0.3)':'#fbbf24',textTransform:'uppercase',letterSpacing:'0.06em'}}>{proj.status}</div>
+                                        )}
                                     </div>
                                     <span className="sb-pv-arrow">▸</span>
                                 </div>
@@ -3966,7 +4032,7 @@
                             {/* Collapsed state: two icon pills with tooltips */}
                             <div className="sb-pv-collapsed">
                                 <div className="sidebar-item-wrap">
-                                    <button className="sb-pv-collapsed-pill" title="Projects" onClick={() => { setPmInputVal(''); setPmModal('projects'); }}>🏗️</button>
+                                    <button className="sb-pv-collapsed-pill" title="Projects" onClick={() => setActiveModule('projects')}>🏗️</button>
                                     <div className="sidebar-tooltip">{proj?.name || 'Projects'}</div>
                                 </div>
                                 <div className="sidebar-item-wrap">
@@ -4037,7 +4103,18 @@
                             {/* Left: Title */}
                             <div>
                                 <h1 style={{fontSize:"1.35rem",fontWeight:'var(--fw-bold)',letterSpacing:"-0.01em"}}>Real Estate Financial Modeling Platform</h1>
-                                <p style={{fontSize:"0.7rem",color:"var(--color-muted)",marginTop:"2px",letterSpacing:"0.02em"}}>Module 1: Project Setup & Financial Structure</p>
+                                <p style={{fontSize:"0.7rem",color:"var(--color-muted)",marginTop:"2px",letterSpacing:"0.02em"}}>{
+                                    activeModule === 'dashboard' ? 'Dashboard — Projects & Activity Overview' :
+                                    activeModule === 'projects'  ? 'Projects — Manage & Switch Active Project' :
+                                    activeModule === 'overview'  ? 'Overview — Project Summary & Key Metrics' :
+                                    activeModule === 'module1'   ? 'Module 1: Project Setup & Financial Structure' :
+                                    activeModule === 'module2'   ? 'Module 2: Revenue & Sales Projections' :
+                                    activeModule === 'module3'   ? 'Module 3: Operating Expenses & Cash Flow' :
+                                    activeModule === 'module4'   ? 'Module 4: Returns & Valuation Analysis' :
+                                    activeModule === 'module5'   ? 'Module 5: Financial Statements' :
+                                    activeModule === 'module6'   ? 'Module 6: Reports & Visualizations' :
+                                    'Real Estate Financial Modeling Platform'
+                                }</p>
                             </div>
                             {/* Right: Logos + Name */}
                             <div style={{display:"flex", flexDirection:"column", alignItems:"flex-end", gap:"6px"}}>
@@ -4054,28 +4131,6 @@
                         </div>
                     </div>
 
-                    {/* Navigation */}
-                    <div className="bg-white shadow-sm border-b">
-                        <div className="container mx-auto px-6">
-                            <div style={{display:"flex",gap:0}}>
-                                {[['dashboard','Dashboard'],['projects','Projects'],['overview','Overview'],['module1','Module 1']].map(([key,label])=>(
-                                    <button key={key} onClick={()=>setActiveModule(key)}
-                                        style={{
-                                            padding:"0.85rem 1.5rem",
-                                            background:"transparent",
-                                            border:"none",
-                                            borderBottom: activeModule===key ? "3px solid #1E3A8A" : "3px solid transparent",
-                                            color: activeModule===key ? "var(--color-primary)" : "var(--color-body)",
-                                            fontWeight: activeModule===key ? 600 : 500,
-                                            fontSize:"0.88rem",
-                                            cursor:"pointer",
-                                            transition:"all 0.18s",
-                                        }}
-                                    >{label}</button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
 
                     {/* ===== DASHBOARD MODULE ===== */}
                     {activeModule === 'dashboard' && (() => {
@@ -4083,7 +4138,7 @@
                         const allProjects = Object.entries(store.projects || {});
                         const activeProjects = allProjects.filter(([,p]) => p.status !== 'Archived');
                         const archivedProjects = allProjects.filter(([,p]) => p.status === 'Archived');
-                        const recentProjects = [...allProjects].sort((a,b) => new Date(b[1].lastModified||b[1].createdAt) - new Date(a[1].lastModified||a[1].createdAt)).slice(0,5);
+                        const recentProjects = [...allProjects].filter(([,p]) => p.status !== 'Archived').sort((a,b) => new Date(b[1].lastModified||b[1].createdAt) - new Date(a[1].lastModified||a[1].createdAt)).slice(0,5);
                         const kpiCard = (icon, label, value, color) => (
                             <div style={{background:'white',borderRadius:'var(--radius-md)',border:'1px solid #E5E7EB',boxShadow:'var(--shadow-1)',overflow:'hidden',minWidth:0}}>
                                 <div style={{height:'4px',background:color}}></div>
@@ -4095,7 +4150,7 @@
                             </div>
                         );
                         return (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
                             <div className="module-card p-8 mb-6">
                                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.75rem'}}>
                                     <div>
@@ -4156,7 +4211,12 @@
                                             return (
                                                 <div key={pid} onClick={() => {
                                                     const vIds = Object.keys(proj.versions||{});
-                                                    if(vIds.length) { switchToVersion(pid, proj.versions[activeVersionId] ? activeVersionId : vIds[0]); setActiveModule('module1'); }
+                                                    if(vIds.length) {
+                                                        // Use the matching version if same project, otherwise use first version
+                                                        const targetVerId = (pid === activeProjectId && activeVersionId && proj.versions[activeVersionId]) ? activeVersionId : vIds[0];
+                                                        switchToVersion(pid, targetVerId);
+                                                        setActiveModule('module1');
+                                                    }
                                                 }} style={{display:'flex',alignItems:'center',gap:'1rem',padding:'0.85rem 1rem',background: isActive ? '#EFF6FF':'white',border:`1px solid ${isActive?'#BFDBFE':'#E5E7EB'}`,borderRadius:'var(--radius-sm)',cursor:'pointer',transition:'all 0.15s'}}>
                                                     <div style={{flex:1,minWidth:0}}>
                                                         <div style={{fontWeight:'var(--fw-semibold)',color:'var(--color-primary-deep)',fontSize:'var(--font-body)',marginBottom:'2px'}}>{proj.name}</div>
@@ -4182,6 +4242,7 @@
 
                     {/* ===== PROJECTS SCREEN MODULE ===== */}
                     {activeModule === 'projects' && (() => {
+                        void projectsRenderKey; // read key to force re-render on status changes
                         const store = loadStorage();
                         const allProjects = Object.entries(store.projects || {});
                         const statusColors = {Draft:'#6B7280',Active:'#10B981','IC Review':'#F59E0B',Approved:'#3B82F6',Archived:'#9CA3AF'};
@@ -4192,14 +4253,12 @@
                             s.projects[pid].lastModified = new Date().toISOString();
                             saveStorage(s);
                             showToast('📦 Project archived', '#F59E0B');
-                            setActiveModule('projects'); // trigger re-render
-                            // force re-render by dummy state update
-                            setPmModal(null);
+                            setProjectsRenderKey(k => k + 1); // force re-render without side-navigating
                         };
                         return (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
                             <div className="module-card p-8 mb-6">
-                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.75rem'}}>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem'}}>
                                     <div>
                                         <h2 style={{fontSize:'1.4rem',fontWeight:'var(--fw-bold)',color:'var(--color-primary-deep)',marginBottom:'0.25rem'}}>All Projects</h2>
                                         <p style={{fontSize:'var(--font-meta)',color:'var(--color-meta)'}}>{allProjects.length} project{allProjects.length!==1?'s':''} total</p>
@@ -4209,6 +4268,28 @@
                                         + New Project
                                     </button>
                                 </div>
+
+                                {/* Search & Filter bar */}
+                                {allProjects.length > 0 && (
+                                    <div style={{display:'flex',gap:'0.75rem',marginBottom:'1.25rem',flexWrap:'wrap'}}>
+                                        <input type="text" value={projectSearch} onChange={e => setProjectSearch(e.target.value)}
+                                            placeholder="🔍  Search projects by name or location…"
+                                            style={{flex:'1',minWidth:'200px',padding:'0.5rem 0.75rem',border:'1px solid #D1D5DB',borderRadius:'var(--radius-sm)',fontSize:'var(--font-body)',background:'white',outline:'none'}}
+                                        />
+                                        <select value={projectStatusFilter} onChange={e => setProjectStatusFilter(e.target.value)}
+                                            style={{padding:'0.5rem 0.75rem',border:'1px solid #D1D5DB',borderRadius:'var(--radius-sm)',fontSize:'var(--font-body)',background:'white',cursor:'pointer'}}>
+                                            <option value="all">All Statuses</option>
+                                            {['Draft','Active','IC Review','Approved','Archived'].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                        <select value={projectSort} onChange={e => setProjectSort(e.target.value)}
+                                            style={{padding:'0.5rem 0.75rem',border:'1px solid #D1D5DB',borderRadius:'var(--radius-sm)',fontSize:'var(--font-body)',background:'white',cursor:'pointer'}}>
+                                            <option value="modified">Sort: Last Modified</option>
+                                            <option value="created">Sort: Date Created</option>
+                                            <option value="name">Sort: Name (A–Z)</option>
+                                            <option value="versions">Sort: Most Versions</option>
+                                        </select>
+                                    </div>
+                                )}
 
                                 {allProjects.length === 0 ? (
                                     <div style={{textAlign:'center',padding:'3rem 1rem',background:'#F9FAFB',borderRadius:'var(--radius-md)',border:'2px dashed #D1D5DB'}}>
@@ -4230,7 +4311,25 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {allProjects.sort((a,b)=>new Date(b[1].lastModified||b[1].createdAt)-new Date(a[1].lastModified||a[1].createdAt)).map(([pid,proj]) => {
+                                            {(() => {
+                                                let filtered = allProjects;
+                                                if (projectSearch.trim()) {
+                                                    const q = projectSearch.trim().toLowerCase();
+                                                    filtered = filtered.filter(([,p]) => (p.name||'').toLowerCase().includes(q) || (p.location||'').toLowerCase().includes(q));
+                                                }
+                                                if (projectStatusFilter !== 'all') {
+                                                    filtered = filtered.filter(([,p]) => (p.status||'Draft') === projectStatusFilter);
+                                                }
+                                                filtered = filtered.sort((a,b) => {
+                                                    if (projectSort === 'name') return (a[1].name||'').localeCompare(b[1].name||'');
+                                                    if (projectSort === 'created') return new Date(b[1].createdAt) - new Date(a[1].createdAt);
+                                                    if (projectSort === 'versions') return Object.keys(b[1].versions||{}).length - Object.keys(a[1].versions||{}).length;
+                                                    return new Date(b[1].lastModified||b[1].createdAt) - new Date(a[1].lastModified||a[1].createdAt);
+                                                });
+                                                if (filtered.length === 0) return (
+                                                    <tr><td colSpan="6" style={{padding:'2rem',textAlign:'center',color:'var(--color-muted)',fontSize:'var(--font-body)'}}>No projects match your search.</td></tr>
+                                                );
+                                                return filtered.map(([pid,proj]) => {
                                                 const isActive = pid === activeProjectId;
                                                 const vCount = Object.keys(proj.versions||{}).length;
                                                 const sColor = statusColors[proj.status]||'#6B7280';
@@ -4269,7 +4368,11 @@
                                                         <div style={{display:'flex',gap:'4px'}}>
                                                             <button title="Open" onClick={() => {
                                                                 const vIds = Object.keys(proj.versions||{});
-                                                                if(vIds.length) { switchToVersion(pid, proj.versions[activeVersionId]?activeVersionId:vIds[0]); setActiveModule('module1'); }
+                                                                if(vIds.length) {
+                                                                    const targetVerId = (pid === activeProjectId && activeVersionId && proj.versions[activeVersionId]) ? activeVersionId : vIds[0];
+                                                                    switchToVersion(pid, targetVerId);
+                                                                    setActiveModule('module1');
+                                                                }
                                                             }} style={{background:'#EFF6FF',border:'none',color:'#2563eb',borderRadius:'5px',padding:'4px 8px',cursor:'pointer',fontSize:'var(--font-meta)',fontWeight:'var(--fw-semibold)'}}>Open</button>
                                                             <button title="Edit project details" onClick={() => {
                                                                 setPmEditProjectId(pid);
@@ -4291,7 +4394,8 @@
                                                     </td>
                                                 </tr>
                                                 );
-                                            })}
+                                            })
+                                            })()}
                                         </tbody>
                                     </table>
                                 )}
@@ -4302,7 +4406,19 @@
 
                     {/* Module 1 Content */}
                     {activeModule === 'overview' && (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
+                            {!activeProjectId && (
+                                <div style={{textAlign:'center',padding:'4rem 2rem',background:'white',borderRadius:'var(--radius-md)',border:'2px dashed #D1D5DB',margin:'2rem'}}>
+                                    <div style={{fontSize:'3rem',marginBottom:'1rem'}}>📊</div>
+                                    <h3 style={{fontSize:'1.15rem',fontWeight:'var(--fw-bold)',color:'var(--color-primary-deep)',marginBottom:'0.5rem'}}>No Project Selected</h3>
+                                    <p style={{fontSize:'var(--font-meta)',color:'var(--color-meta)',marginBottom:'1.5rem'}}>Select or create a project to view its overview metrics.</p>
+                                    <div style={{display:'flex',gap:'0.75rem',justifyContent:'center'}}>
+                                        <button onClick={() => setActiveModule('projects')} style={{padding:'0.6rem 1.25rem',background:'var(--color-primary)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontWeight:'var(--fw-semibold)',fontSize:'var(--font-body)'}}>Go to Projects</button>
+                                        <button onClick={() => { setPmInputVal(''); setPmLocationVal(''); setPmAssetMix([]); setPmModal('newProject'); }} style={{padding:'0.6rem 1.25rem',background:'white',color:'var(--color-primary)',border:'1px solid var(--color-primary)',borderRadius:'var(--radius-sm)',cursor:'pointer',fontWeight:'var(--fw-semibold)',fontSize:'var(--font-body)'}}>+ New Project</button>
+                                    </div>
+                                </div>
+                            )}
+                            {activeProjectId && (<>
                             {/* Project Overview Dashboard */}
                             <div className="module-card p-8 mb-8">
                                 <h2 style={{fontSize:"1.3rem",fontWeight:'var(--fw-semibold)',color:"var(--color-primary-deep)",marginBottom:"1.5rem"}}>Project Overview</h2>
@@ -4485,12 +4601,13 @@
                                     </button>
                                 </div>
                             </div>
+                        </>)}
                         </div>
                     )}
 
                     {/* Module 1 Detailed View */}
                     {activeModule === 'module1' && !activeProjectId && (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
                             <div style={{textAlign:'center',padding:'4rem 2rem',background:'white',borderRadius:'var(--radius-md)',border:'2px dashed #D1D5DB',marginBottom:'2rem'}}>
                                 <div style={{fontSize:'3rem',marginBottom:'1rem'}}>📋</div>
                                 <h3 style={{fontSize:'1.15rem',fontWeight:'var(--fw-bold)',color:'var(--color-primary-deep)',marginBottom:'0.5rem'}}>Select a project to begin modeling</h3>
@@ -4509,7 +4626,7 @@
                         </div>
                     )}
                     {activeModule === 'module1' && activeProjectId && (
-                        <div className="module-view container mx-auto">
+                        <div className="module-view">
                             {/* Sub Navigation */}
                             <div className="sticky-nav" style={{borderRadius:0,padding:"0 0.5rem",marginBottom:"1.5rem",display:"flex",gap:0}}>
                                 <button
@@ -4774,6 +4891,26 @@
                                                     data-field-key="operationsPeriods"
                                                 />
                                             </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Overlap ({modelType === 'monthly' ? 'Months' : 'Years'}) <span className="text-xs font-normal text-gray-400">— Operations start before construction ends</span>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={overlapPeriods}
+                                                    min="0"
+                                                    max={Math.max(0, Math.min(constructionPeriods, operationsPeriods) - 1)}
+                                                    onChange={(e) => setOverlapPeriods(Math.max(0, parseInt(e.target.value) || 0))}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                                    data-project-id={activeProjectId}
+                                                    data-field-key="overlapPeriods"
+                                                />
+                                                {overlapPeriods > 0 && (
+                                                    <div className="text-xs text-blue-600 mt-1">
+                                                        ✓ Operations start in {modelType === 'monthly' ? 'month' : 'year'} {constructionPeriods - overlapPeriods + 1} — {overlapPeriods} {modelType === 'monthly' ? 'month' : 'year'}{overlapPeriods !== 1 ? 's' : ''} before construction ends
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {/* Results Display */}
@@ -4783,10 +4920,10 @@
                                                 <div>
                                                     <div className="text-sm text-gray-600 mb-1">Total Project Duration</div>
                                                     <div className="text-2xl font-bold" style={{color:'var(--color-primary-deep)'}}>
-                                                        {constructionPeriods + operationsPeriods} {modelType === 'monthly' ? 'Months' : 'Years'}
+                                                        {constructionPeriods + operationsPeriods - overlapPeriods} {modelType === 'monthly' ? 'Months' : 'Years'}
                                                     </div>
                                                     <div className="text-xs text-gray-500 mt-1">
-                                                        Construction: {constructionPeriods} | Operations: {operationsPeriods}
+                                                        {constructionPeriods} Construction + {operationsPeriods} Operations{overlapPeriods > 0 ? ` − ${overlapPeriods} Overlap` : ''}
                                                     </div>
                                                 </div>
                                                 <div>
@@ -4832,28 +4969,112 @@
                                                 <h4 className="text-lg font-bold" style={{color:'var(--color-primary-deep)'}}>Project Land & Density Control</h4>
                                             </div>
 
-                                            {/* Land Value Inputs */}
-                                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Land Value (per sqm) — {currency}</label>
-                                                    <input type="number" value={landValuePerSqm}
-                                                        onChange={(e) => setLandValuePerSqm(parseFloat(e.target.value) || 0)}
-                                                        className="input-assumption w-full px-4 py-2 border rounded-lg"
-                                                        data-project-id={activeProjectId} data-field-key="landValuePerSqm" />
+                                            {/* Multi-Parcel Land Inputs */}
+                                            <div className="mb-5">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <label className="block text-sm font-semibold text-gray-700">Land Parcels</label>
+                                                    <button
+                                                        onClick={() => {
+                                                            const newId = (landParcels.reduce((mx, p) => Math.max(mx, p.id), 0)) + 1;
+                                                            setLandParcels([...landParcels, { id: newId, name: `Land ${newId}`, area: 0, rate: 0, cashPct: 100, inKindPct: 0 }]);
+                                                        }}
+                                                        className="text-xs px-3 py-1 rounded-lg font-medium text-white"
+                                                        style={{background:'var(--color-primary)'}}>
+                                                        + Add Parcel
+                                                    </button>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Cash % / In-Kind %</label>
-                                                    <div className="flex gap-2">
-                                                        <input type="number" value={cashPercent}
-                                                            onChange={(e) => { const v = parseFloat(e.target.value)||0; setCashPercent(v); setInKindPercent(100-v); }}
-                                                            className="input-assumption w-full px-4 py-2 border rounded-lg" min="0" max="100"
-                                                            placeholder="Cash %"
-                                                            data-project-id={activeProjectId} data-field-key="cashPercent" />
-                                                        <input type="number" value={inKindPercent}
-                                                            onChange={(e) => { const v = parseFloat(e.target.value)||0; setInKindPercent(v); setCashPercent(100-v); }}
-                                                            className="input-assumption w-full px-4 py-2 border rounded-lg" min="0" max="100"
-                                                            placeholder="In-Kind %"
-                                                            data-project-id={activeProjectId} data-field-key="inKindPercent" />
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-sm" style={{borderCollapse:'collapse'}}>
+                                                        <thead>
+                                                            <tr style={{background:'#F3F4F6',borderBottom:'2px solid #E5E7EB'}}>
+                                                                <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Land Name</th>
+                                                                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">Land Area (sqm)</th>
+                                                                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">Rate / sqm ({currency})</th>
+                                                                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">Total Land Value</th>
+                                                                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">Cash %</th>
+                                                                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600">In-Kind %</th>
+                                                                <th className="px-2 py-2"></th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {landParcels.map((parcel, idx) => {
+                                                                const val = (parseFloat(parcel.area) || 0) * (parseFloat(parcel.rate) || 0);
+                                                                const updateParcel = (field, value) => {
+                                                                    setLandParcels(landParcels.map((p, i) => {
+                                                                        if (i !== idx) return p;
+                                                                        const updated = { ...p, [field]: value };
+                                                                        if (field === 'cashPct') updated.inKindPct = Math.max(0, 100 - (parseFloat(value) || 0));
+                                                                        if (field === 'inKindPct') updated.cashPct = Math.max(0, 100 - (parseFloat(value) || 0));
+                                                                        return updated;
+                                                                    }));
+                                                                };
+                                                                return (
+                                                                    <tr key={parcel.id} style={{borderBottom:'1px solid #E5E7EB',background: idx % 2 === 0 ? 'white' : '#FAFAFA'}}>
+                                                                        <td className="px-2 py-1">
+                                                                            <input type="text" value={parcel.name}
+                                                                                onChange={e => updateParcel('name', e.target.value)}
+                                                                                className="w-full px-2 py-1 border border-gray-200 rounded text-sm input-assumption" />
+                                                                        </td>
+                                                                        <td className="px-2 py-1">
+                                                                            <input type="number" value={parcel.area}
+                                                                                onChange={e => updateParcel('area', e.target.value)}
+                                                                                className="w-full px-2 py-1 border border-gray-200 rounded text-sm text-right input-assumption" />
+                                                                        </td>
+                                                                        <td className="px-2 py-1">
+                                                                            <input type="number" value={parcel.rate}
+                                                                                onChange={e => updateParcel('rate', e.target.value)}
+                                                                                className="w-full px-2 py-1 border border-gray-200 rounded text-sm text-right input-assumption" />
+                                                                        </td>
+                                                                        <td className="px-3 py-1 text-right font-medium text-gray-700">
+                                                                            {formatNumber(val)}
+                                                                        </td>
+                                                                        <td className="px-2 py-1">
+                                                                            <input type="number" value={parcel.cashPct} min="0" max="100"
+                                                                                onChange={e => updateParcel('cashPct', e.target.value)}
+                                                                                className="w-full px-2 py-1 border border-gray-200 rounded text-sm text-right input-assumption" />
+                                                                        </td>
+                                                                        <td className="px-2 py-1">
+                                                                            <input type="number" value={parcel.inKindPct} min="0" max="100"
+                                                                                onChange={e => updateParcel('inKindPct', e.target.value)}
+                                                                                className="w-full px-2 py-1 border border-gray-200 rounded text-sm text-right input-assumption" />
+                                                                        </td>
+                                                                        <td className="px-2 py-1 text-center">
+                                                                            {landParcels.length > 1 && (
+                                                                                <button onClick={() => setLandParcels(landParcels.filter((_, i) => i !== idx))}
+                                                                                    style={{background:'#FEF2F2',border:'none',color:'#dc2626',borderRadius:'4px',padding:'2px 6px',cursor:'pointer',fontSize:'0.75rem'}}>✕</button>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                            {/* Totals row */}
+                                                            <tr style={{borderTop:'2px solid var(--color-primary)',background:'var(--color-primary-deep)',fontWeight:'600'}}>
+                                                                <td className="px-3 py-2 text-sm font-bold text-white" style={{background:'var(--color-primary-deep)'}}>Total</td>
+                                                                <td className="px-3 py-2 text-right text-sm font-bold text-white" style={{background:'var(--color-primary-deep)'}}>{formatNumber(totalLandArea)}</td>
+                                                                <td className="px-3 py-2 text-right text-xs italic" style={{background:'var(--color-primary-deep)',color:'rgba(255,255,255,0.6)'}}>weighted avg: {formatNumber(landValuePerSqm, 0)}</td>
+                                                                <td className="px-3 py-2 text-right text-sm font-bold text-white" style={{background:'var(--color-primary-deep)'}}>{formatNumber(totalLandValue)}</td>
+                                                                <td className="px-3 py-2 text-right text-sm font-bold text-white" style={{background:'var(--color-primary-deep)'}}>{cashPercent.toFixed(1)}%</td>
+                                                                <td className="px-3 py-2 text-right text-sm font-bold text-white" style={{background:'var(--color-primary-deep)'}}>{inKindPercent.toFixed(1)}%</td>
+                                                                <td style={{background:'var(--color-primary-deep)'}}></td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-3 mt-3">
+                                                    <div className="rounded-lg p-3 text-center" style={{background:'var(--color-primary-deep)',border:'1px solid var(--color-primary)'}}>
+                                                        <div className="text-xs font-medium mb-0.5" style={{color:'rgba(255,255,255,0.7)'}}>Total Land Value</div>
+                                                        <div className="text-base font-bold text-white">{currency} {formatNumber(totalLandValue)}</div>
+                                                        <div className="text-xs mt-0.5" style={{color:'rgba(255,255,255,0.5)'}}>100% of total</div>
+                                                    </div>
+                                                    <div className="rounded-lg p-3 text-center" style={{background:'#EFF6FF',border:'1px solid #BFDBFE'}}>
+                                                        <div className="text-xs text-blue-600 font-medium mb-0.5">Cash Land Value</div>
+                                                        <div className="text-base font-bold text-blue-800">{currency} {formatNumber(cashValue)}</div>
+                                                        <div className="text-xs text-blue-400">{cashPercent.toFixed(1)}% of total</div>
+                                                    </div>
+                                                    <div className="rounded-lg p-3 text-center" style={{background:'#F0FDF4',border:'1px solid #BBF7D0'}}>
+                                                        <div className="text-xs text-green-600 font-medium mb-0.5">In-Kind Land Value</div>
+                                                        <div className="text-base font-bold text-green-800">{currency} {formatNumber(inKindValue)}</div>
+                                                        <div className="text-xs text-green-400">{inKindPercent.toFixed(1)}% of total</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -4862,10 +5083,10 @@
                                             <div className="grid grid-cols-3 gap-4 mb-5">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">Total Land Area (sqm)</label>
-                                                    <input type="number" value={totalLandArea}
-                                                        onChange={(e) => setTotalLandArea(parseFloat(e.target.value) || 0)}
-                                                        className="input-assumption w-full px-4 py-2 border rounded-lg"
-                                                        data-project-id={activeProjectId} data-field-key="totalLandArea" />
+                                                    <div className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium">
+                                                        {formatNumber(totalLandArea)}
+                                                        <span className="text-xs text-gray-400 ml-1 font-normal">auto-sum of parcels</span>
+                                                    </div>
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">Roads & Open Area %</label>
