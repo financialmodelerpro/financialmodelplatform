@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real Estate Financial Modeling Platform - Module 1 Complete</title>
+    <title>Financial Modeler Pro — Platform Hub</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -75,7 +75,8 @@
             --transition: all 0.2s ease;
         }
 
-        html, body { height: 100%; overflow: hidden; }
+        html, body { height: 100%; }
+        body.refm-active { overflow: hidden; }
         body { font-family: 'Inter', sans-serif; zoom: 0.9; background: var(--color-bg); }
         /* ── Tab Active ── */
         .tab-active { 
@@ -997,6 +998,49 @@
         /* Refinement 7: Content padding via token */
         .content-body { padding: var(--sp-3); }
 
+        /* ════════════════════════════════════════════════════
+           PORTAL LAYER — Financial Modeler Pro Hub
+           Uses existing design tokens only. No new system.
+        ════════════════════════════════════════════════════ */
+        .portal-root { min-height: 100vh; overflow-y: auto; background: var(--color-bg); display: flex; flex-direction: column; }
+        .portal-header { background: var(--color-primary-deep); border-bottom: 1px solid rgba(255,255,255,0.08); height: 52px; display: flex; align-items: center; padding: 0 var(--sp-4); gap: var(--sp-2); position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
+        .portal-header-logo { display: flex; align-items: center; gap: 10px; }
+        .portal-header-logo-icon { width: 34px; height: 34px; background: var(--color-primary); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15); }
+        .portal-header-title { font-size: 13px; font-weight: var(--fw-bold); color: white; letter-spacing: -0.01em; line-height: 1; margin: 0; }
+        .portal-header-subtitle { font-size: 9.5px; font-weight: var(--fw-medium); color: rgba(255,255,255,0.38); letter-spacing: 0.06em; text-transform: uppercase; line-height: 1; margin: 2px 0 0; }
+        .portal-header-spacer { flex: 1; }
+        .portal-header-version-pill { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-pill); padding: 2px 10px; font-size: 10px; font-weight: var(--fw-semibold); color: rgba(255,255,255,0.5); letter-spacing: 0.04em; }
+        .portal-body { flex: 1; max-width: 1100px; width: 100%; margin: 0 auto; padding: var(--sp-5) var(--sp-4); box-sizing: border-box; }
+        .portal-welcome { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-1); padding: var(--sp-4) var(--sp-5); margin-bottom: var(--sp-4); position: relative; overflow: hidden; }
+        .portal-welcome::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--color-primary); border-radius: 4px 0 0 4px; }
+        .portal-welcome h1 { font-size: var(--font-h2); font-weight: var(--fw-bold); color: var(--color-heading); margin: 0 0 8px; letter-spacing: -0.02em; line-height: 1.2; }
+        .portal-welcome p { font-size: var(--font-body); color: var(--color-meta); margin: 0; line-height: 1.6; max-width: 640px; }
+        .portal-section-label { font-size: var(--font-micro); font-weight: var(--fw-bold); color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: var(--sp-2); }
+        .portal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(245px, 1fr)); gap: var(--sp-3); }
+        .portal-platform-card { background: var(--color-surface); border-radius: var(--radius-md); border: 1px solid var(--color-border); box-shadow: var(--shadow-1); transition: var(--transition); display: flex; flex-direction: column; overflow: hidden; }
+        .portal-platform-card:hover { box-shadow: var(--shadow-2); transform: translateY(-2px); }
+        .portal-platform-card.locked { opacity: 0.72; }
+        .portal-platform-card.locked:hover { transform: none; box-shadow: var(--shadow-1); }
+        .portal-card-accent { height: 4px; width: 100%; flex-shrink: 0; }
+        .portal-card-body { padding: var(--sp-3); flex: 1; display: flex; flex-direction: column; gap: 6px; }
+        .portal-card-icon-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+        .portal-card-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .portal-card-status-pill { font-size: 9px; font-weight: var(--fw-bold); letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 9px; border-radius: var(--radius-pill); }
+        .portal-card-status-pill.active { background: #DCFCE7; color: var(--color-success); }
+        .portal-card-status-pill.soon { background: #F3F4F6; color: var(--color-muted); }
+        .portal-card-name { font-size: 15px; font-weight: var(--fw-bold); color: var(--color-heading); line-height: 1.25; margin: 0; }
+        .portal-card-desc { font-size: var(--font-meta); color: var(--color-meta); line-height: 1.55; flex: 1; margin: 0; }
+        .portal-card-footer { padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--color-border-light); background: var(--color-row-alt); }
+        .portal-launch-btn { width: 100%; padding: 9px 0; border-radius: var(--radius-sm); font-size: var(--font-body); font-weight: var(--fw-semibold); cursor: pointer; border: none; transition: var(--transition); letter-spacing: 0.01em; }
+        .portal-launch-btn.available { background: var(--color-primary); color: white; }
+        .portal-launch-btn.available:hover { background: var(--color-primary-dark); transform: translateY(-1px); box-shadow: var(--shadow-hover); }
+        .portal-launch-btn.coming-soon { background: var(--color-surface); color: var(--color-muted); border: 1px solid var(--color-border); cursor: default; pointer-events: none; }
+        .portal-launch-btn.upgrade { background: var(--color-surface); color: var(--color-primary); border: 1.5px solid var(--color-primary); cursor: pointer; }
+        .portal-launch-btn.upgrade:hover { background: #EFF6FF; }
+        .portal-back-btn { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: var(--radius-sm); font-size: var(--font-meta); font-weight: var(--fw-semibold); cursor: pointer; border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.82); transition: var(--transition); white-space: nowrap; flex-shrink: 0; }
+        .portal-back-btn:hover { background: rgba(255,255,255,0.16); color: white; border-color: rgba(255,255,255,0.35); }
+        .portal-footer { text-align: center; padding: var(--sp-4) var(--sp-3); color: var(--color-muted); font-size: var(--font-micro); border-top: 1px solid var(--color-border); margin-top: var(--sp-5); background: var(--color-surface); }
+
     </style>
 </head>
 <body>
@@ -1091,7 +1135,956 @@
             },
         };
 
-        function RealEstatePlatform() {
+        // ════════════════════════════════════════════════════════════
+        //  PORTAL LAYER — Financial Modeler Pro Hub
+        //  Wraps all platforms. Currently hosts REFM.
+        //  Structure prepared for future platform additions.
+        // ════════════════════════════════════════════════════════════
+
+        // ── User subscription (future: backend-driven) ──────────────
+        const userSubscription = {
+            userId:    'user_001',
+            plan:      'Professional',
+            platforms: ['refm'],
+        };
+
+        // ── Branding persistence ─────────────────────────────────────
+        const BRANDING_KEY = 'fmp_portal_branding_v1';
+
+        const DEFAULT_BRANDING = {
+            portalTitle:       'Financial Modeler Pro',
+            portalSubtitle:    'Platform Hub',
+            portalDescription: 'A professional suite of financial modeling and planning tools — built for real estate developers, corporate finance teams, and FP&A professionals. Select a platform below to begin.',
+            footerText:        'Professional Financial Modeling Suite',
+            portalLogoType:    'emoji',   // 'emoji' | 'image'
+            portalLogoEmoji:   '💼',
+            portalLogoImage:   null,      // base64 data-URL or null
+            platformName:      'REFM Platform',   // platform toolbar display name
+            platformLogoType:  'emoji',   // 'emoji' | 'image'
+            platformLogoEmoji: '🏗️',
+            platformLogoImage: null,
+            // Editable platform card registry (mirrors PLATFORM_REGISTRY defaults)
+            platforms: null,  // null = use PLATFORM_REGISTRY defaults; array = custom overrides
+        };
+
+        function loadBranding() {
+            try {
+                const raw = localStorage.getItem(BRANDING_KEY);
+                if (raw) return { ...DEFAULT_BRANDING, ...JSON.parse(raw) };
+            } catch(e) {}
+            return { ...DEFAULT_BRANDING };
+        }
+
+        function saveBranding(b) {
+            try { localStorage.setItem(BRANDING_KEY, JSON.stringify(b)); } catch(e) {}
+        }
+
+        // ── Platform registry ────────────────────────────────────────
+        const PLATFORM_REGISTRY = [
+            {
+                id:          'refm',
+                name:        'Real Estate Financial Modeling',
+                shortName:   'REFM Platform',
+                description: 'Advanced real estate development and investment modeling platform. Full project lifecycle, financing structures, and financial schedules.',
+                icon:        '🏗️',
+                accentColor: '#1E3A8A',
+                iconBg:      '#EFF6FF',
+                status:      'active',
+                version:     'v40',
+            },
+            {
+                id:          'dcf',
+                name:        '3 Statement & DCF Modeling',
+                shortName:   'DCF Platform',
+                description: 'Corporate financial modeling and valuation tools. Three-statement model, DCF valuation, and comparable company analysis.',
+                icon:        '📊',
+                accentColor: '#166534',
+                iconBg:      '#F0FDF4',
+                status:      'coming_soon',
+                version:     null,
+            },
+            {
+                id:          'fpa',
+                name:        'FP&A Planning',
+                shortName:   'FP&A Platform',
+                description: 'Budgeting, forecasting, and financial planning tools. Driver-based models, rolling forecasts, and variance analysis.',
+                icon:        '📈',
+                accentColor: '#6D28D9',
+                iconBg:      '#F5F3FF',
+                status:      'coming_soon',
+                version:     null,
+            },
+            {
+                id:          'cashflow',
+                name:        'Cash Flow Forecasting',
+                shortName:   'Cash Flow Platform',
+                description: 'Treasury and liquidity forecasting platform. 13-week cash flow, working capital management, and scenario planning.',
+                icon:        '💧',
+                accentColor: '#0369A1',
+                iconBg:      '#F0F9FF',
+                status:      'coming_soon',
+                version:     null,
+            },
+        ];
+
+        // ── Helper: check if user has access to a platform ──────────
+        const hasAccess = (platformId) => userSubscription.platforms.includes(platformId);
+
+        // ── Helper: get effective platform list (branding overrides or registry defaults) ──
+        function getEffectivePlatforms(branding) {
+            if (!branding.platforms || !Array.isArray(branding.platforms) || branding.platforms.length === 0) {
+                return PLATFORM_REGISTRY;
+            }
+            return PLATFORM_REGISTRY.map(reg => {
+                const override = branding.platforms.find(p => p.id === reg.id);
+                if (!override) return reg;
+                return {
+                    ...reg,
+                    name:        override.name        !== undefined ? override.name        : reg.name,
+                    description: override.description !== undefined ? override.description : reg.description,
+                    status:      override.status      !== undefined ? override.status      : reg.status,
+                };
+            });
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  BRANDING SETTINGS PANEL — Admin-only, full branding control
+        //  Steps 3 & 4: consolidated portal + logo settings, RBAC guard
+        // ════════════════════════════════════════════════════════════
+        function BrandingSettingsPanel({ branding, onSave, onClose, isAdmin }) {
+
+            // ── Guard: non-admin cannot use this panel ──
+            if (!isAdmin) {
+                return (
+                    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',
+                                 zIndex:99999,display:'flex',alignItems:'center',justifyContent:'center',
+                                 backdropFilter:'blur(5px)'}}>
+                        <div style={{background:'#0F2B46',borderRadius:'16px',padding:'40px 48px',
+                                     textAlign:'center',color:'white',maxWidth:'360px',
+                                     boxShadow:'0 28px 90px rgba(0,0,0,0.55)'}}>
+                            <div style={{fontSize:'3rem',marginBottom:'16px'}}>🔒</div>
+                            <div style={{fontWeight:800,fontSize:'16px',marginBottom:'8px'}}>Admin Only</div>
+                            <div style={{fontSize:'13px',color:'rgba(255,255,255,0.55)',lineHeight:1.6,marginBottom:'24px'}}>
+                                Branding settings can only be accessed by users with the Admin role.
+                            </div>
+                            <button onClick={onClose}
+                                style={{padding:'9px 28px',background:'rgba(255,255,255,0.1)',color:'white',
+                                        border:'1px solid rgba(255,255,255,0.2)',borderRadius:'8px',
+                                        cursor:'pointer',fontSize:'13px',fontWeight:600,fontFamily:'Inter,sans-serif'}}>
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // ── State ──
+            const initDraft = () => {
+                const d = { ...branding };
+                if (!d.platforms || !Array.isArray(d.platforms) || d.platforms.length === 0) {
+                    d.platforms = PLATFORM_REGISTRY.map(p => ({
+                        id: p.id, name: p.name, description: p.description, status: p.status,
+                    }));
+                }
+                if (!d.platformName) d.platformName = 'REFM Platform';
+                return d;
+            };
+            const [draft, setDraft]           = React.useState(() => initDraft());
+            const [saved, setSaved]           = React.useState(false);
+            const [activeSection, setSection] = React.useState('portal');
+            const [dragOver, setDragOver]     = React.useState(null); // 'portal' | 'platform' | null
+            const portalLogoInputRef          = React.useRef(null);
+            const platformLogoInputRef        = React.useRef(null);
+
+            const upd = (key, val) => setDraft(d => ({ ...d, [key]: val }));
+
+            // ── Logo upload handler (file input + drag-drop) ──
+            const handleLogoUpload = (file, prefix) => {
+                if (!file || !file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    upd(prefix + 'LogoImage', e.target.result);
+                    upd(prefix + 'LogoType', 'image');
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const handleSave = () => {
+                onSave(draft);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2500);
+            };
+
+            const handleReset = () => {
+                if (window.confirm('Reset all branding to factory defaults? This cannot be undone.')) {
+                    setDraft({
+                        ...DEFAULT_BRANDING,
+                        platforms: PLATFORM_REGISTRY.map(p => ({
+                            id: p.id, name: p.name, description: p.description, status: p.status,
+                        })),
+                    });
+                }
+            };
+
+            // ── Shared styles ──
+            const S = {
+                label: { display:'block', fontSize:'11px', fontWeight:700, color:'#6B7280',
+                         textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'6px' },
+                input: { width:'100%', padding:'8px 12px', border:'1.5px solid #E5E7EB',
+                         borderRadius:'8px', fontSize:'13px', fontFamily:'Inter,sans-serif',
+                         background:'#FFFBEB', color:'#1E3A8A', boxSizing:'border-box',
+                         outline:'none', transition:'border-color 0.15s, box-shadow 0.15s' },
+                textarea: { width:'100%', padding:'8px 12px', border:'1.5px solid #E5E7EB',
+                            borderRadius:'8px', fontSize:'13px', fontFamily:'Inter,sans-serif',
+                            background:'#FFFBEB', color:'#1E3A8A', boxSizing:'border-box',
+                            outline:'none', resize:'vertical', minHeight:'82px',
+                            lineHeight:'1.6', transition:'border-color 0.15s' },
+                field: { marginBottom:'20px' },
+                sectionBtn: (active) => ({
+                    padding:'10px 16px', border:'none', background:'none', cursor:'pointer',
+                    fontSize:'12.5px', fontWeight: active ? 700 : 500,
+                    color: active ? '#1E3A8A' : '#6B7280',
+                    borderBottom: active ? '2.5px solid #1E3A8A' : '2.5px solid transparent',
+                    fontFamily:'Inter,sans-serif', transition:'all 0.15s', whiteSpace:'nowrap',
+                }),
+                divider: { height:'1px', background:'#F0F0F0', margin:'6px 0 22px' },
+                sectionTitle: { fontSize:'12px', fontWeight:800, color:'#374151',
+                                textTransform:'uppercase', letterSpacing:'0.08em',
+                                marginBottom:'16px', display:'flex', alignItems:'center', gap:'7px' },
+            };
+
+            // ── Logo upload zone component (used for both portal + platform logos) ──
+            const LogoUploadZone = ({ prefix, title }) => {
+                const isImg  = draft[prefix + 'LogoType'] === 'image';
+                const imgSrc = draft[prefix + 'LogoImage'];
+                const emoji  = draft[prefix + 'LogoEmoji'] || (prefix === 'portal' ? '💼' : '🏗️');
+                const ref    = prefix === 'portal' ? portalLogoInputRef : platformLogoInputRef;
+                const isDrag = dragOver === prefix;
+
+                return (
+                    <div style={{border:'1.5px solid #E5E7EB', borderRadius:'10px',
+                                 padding:'16px 18px', background:'#FAFAFA', marginBottom:'6px'}}>
+                        <div style={{display:'flex', alignItems:'center', gap:'14px', flexWrap:'wrap'}}>
+
+                            {/* Preview box */}
+                            <div style={{width:'56px', height:'56px', borderRadius:'10px',
+                                         background: isImg ? '#F9FAFB' : '#EFF6FF',
+                                         border: isImg ? '1px solid #E5E7EB' : '1px solid #BFDBFE',
+                                         display:'flex', alignItems:'center', justifyContent:'center',
+                                         fontSize:'28px', flexShrink:0, overflow:'hidden',
+                                         boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                                {isImg && imgSrc
+                                    ? <img src={imgSrc} alt="logo" style={{width:'100%',height:'100%',objectFit:'contain'}} />
+                                    : emoji}
+                            </div>
+
+                            {/* Controls */}
+                            <div style={{flex:1, minWidth:'180px'}}>
+                                <div style={{fontWeight:700, fontSize:'13px', color:'#111827', marginBottom:'10px'}}>{title}</div>
+
+                                {/* Type toggle */}
+                                <div style={{display:'flex', borderRadius:'7px', border:'1.5px solid #E5E7EB',
+                                             overflow:'hidden', marginBottom:'10px', width:'fit-content'}}>
+                                    {['emoji','image'].map(t => (
+                                        <button key={t} onClick={() => upd(prefix+'LogoType', t)}
+                                            style={{padding:'5px 14px', border:'none', cursor:'pointer',
+                                                    fontFamily:'Inter,sans-serif', fontSize:'12px', fontWeight:700,
+                                                    background: draft[prefix+'LogoType']===t ? '#1E3A8A' : '#F9FAFB',
+                                                    color: draft[prefix+'LogoType']===t ? 'white' : '#9CA3AF',
+                                                    transition:'all 0.15s'}}>
+                                            {t === 'emoji' ? '😀 Emoji' : '🖼️ Upload Image'}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Emoji input */}
+                                {!isImg && (
+                                    <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+                                        <input style={{...S.input, maxWidth:'120px', background:'#FFFBEB'}}
+                                            value={emoji}
+                                            onChange={e => upd(prefix+'LogoEmoji', e.target.value)}
+                                            placeholder="e.g. 💼" maxLength={4} />
+                                        <span style={{fontSize:'11px', color:'#9CA3AF'}}>Type or paste any emoji</span>
+                                    </div>
+                                )}
+
+                                {/* Image upload area */}
+                                {isImg && (
+                                    <div>
+                                        {/* Hidden file input */}
+                                        <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp"
+                                            ref={ref} style={{display:'none'}}
+                                            onChange={e => handleLogoUpload(e.target.files[0], prefix)} />
+
+                                        {/* Drop zone */}
+                                        <div
+                                            onDragOver={e => { e.preventDefault(); setDragOver(prefix); }}
+                                            onDragLeave={() => setDragOver(null)}
+                                            onDrop={e => {
+                                                e.preventDefault(); setDragOver(null);
+                                                const file = e.dataTransfer.files[0];
+                                                if (file) handleLogoUpload(file, prefix);
+                                            }}
+                                            onClick={() => ref.current && ref.current.click()}
+                                            style={{
+                                                border: isDrag ? '2px solid #1E3A8A' : '2px dashed #D1D5DB',
+                                                borderRadius:'8px', padding:'14px 16px',
+                                                background: isDrag ? '#EFF6FF' : '#F9FAFB',
+                                                cursor:'pointer', textAlign:'center',
+                                                transition:'all 0.15s', marginBottom: imgSrc ? '8px' : '0',
+                                            }}>
+                                            <div style={{fontSize:'20px', marginBottom:'4px'}}>
+                                                {isDrag ? '📂' : '⬆️'}
+                                            </div>
+                                            <div style={{fontSize:'12px', fontWeight:600, color: isDrag ? '#1E3A8A' : '#374151', marginBottom:'2px'}}>
+                                                {isDrag ? 'Drop to upload' : (imgSrc ? 'Click or drag to replace' : 'Click or drag image here')}
+                                            </div>
+                                            <div style={{fontSize:'11px', color:'#9CA3AF'}}>
+                                                PNG, JPG, SVG, GIF, WebP · max 2 MB · recommended 64×64px
+                                            </div>
+                                        </div>
+
+                                        {/* Remove button */}
+                                        {imgSrc && (
+                                            <button onClick={() => { upd(prefix+'LogoImage', null); upd(prefix+'LogoType','emoji'); }}
+                                                style={{padding:'5px 12px', border:'1px solid #FECACA',
+                                                        borderRadius:'6px', background:'#FEF2F2', color:'#991B1B',
+                                                        cursor:'pointer', fontSize:'11px', fontWeight:600,
+                                                        fontFamily:'Inter,sans-serif', transition:'all 0.15s'}}>
+                                                ✕ Remove Image
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.65)',
+                             zIndex:99999, display:'flex', alignItems:'center',
+                             justifyContent:'center', backdropFilter:'blur(5px)'}}
+                     onClick={onClose}>
+                    <div style={{background:'#fff', borderRadius:'16px',
+                                 boxShadow:'0 28px 90px rgba(0,0,0,0.38)',
+                                 width:'700px', maxWidth:'97vw', maxHeight:'92vh',
+                                 overflow:'hidden', display:'flex', flexDirection:'column'}}
+                         onClick={e => e.stopPropagation()}>
+
+                        {/* ── Header ── */}
+                        <div style={{background:'var(--color-primary-deep)', padding:'18px 24px',
+                                     display:'flex', alignItems:'center', justifyContent:'space-between',
+                                     flexShrink:0}}>
+                            <div>
+                                <div style={{fontWeight:800, color:'white', fontSize:'15px', letterSpacing:'-0.01em',
+                                             display:'flex', alignItems:'center', gap:'8px'}}>
+                                    🎨 Branding Settings
+                                    <span style={{fontSize:'10px', fontWeight:700, padding:'2px 8px',
+                                                  borderRadius:'999px', background:'rgba(239,68,68,0.25)',
+                                                  color:'#fca5a5', border:'1px solid rgba(239,68,68,0.35)',
+                                                  letterSpacing:'0.06em', textTransform:'uppercase'}}>
+                                        Admin Only
+                                    </span>
+                                </div>
+                                <div style={{fontSize:'11px', color:'rgba(255,255,255,0.42)', marginTop:'3px'}}>
+                                    Changes are saved to your browser and persist across sessions
+                                </div>
+                            </div>
+                            <button onClick={onClose}
+                                style={{background:'rgba(255,255,255,0.1)', border:'none', borderRadius:'8px',
+                                        width:'32px', height:'32px', display:'flex', alignItems:'center',
+                                        justifyContent:'center', cursor:'pointer', color:'rgba(255,255,255,0.75)',
+                                        fontSize:'16px', transition:'background 0.15s'}}>
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* ── Section Tabs ── */}
+                        <div style={{display:'flex', borderBottom:'1px solid #E5E7EB',
+                                     background:'#F9FAFB', paddingLeft:'8px', flexShrink:0,
+                                     overflowX:'auto'}}>
+                            {[
+                                { id:'portal',    label:'🏠 Portal Branding' },
+                                { id:'platform',  label:'⚙️ Platform Toolbar' },
+                                { id:'platforms', label:'🗂️ Platform Cards' },
+                            ].map(s => (
+                                <button key={s.id} onClick={() => setSection(s.id)}
+                                        style={S.sectionBtn(activeSection === s.id)}>
+                                    {s.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* ── Body ── */}
+                        <div style={{flex:1, overflowY:'auto', padding:'24px 26px'}}>
+
+                            {/* ══════════════════════════════════════════
+                                TAB 1: PORTAL BRANDING
+                                All portal-level text fields + both logos
+                            ══════════════════════════════════════════ */}
+                            {activeSection === 'portal' && (<>
+                                <div style={{background:'#EFF6FF', border:'1px solid #BFDBFE',
+                                             borderRadius:'8px', padding:'10px 14px',
+                                             fontSize:'12px', color:'#1E40AF', lineHeight:1.55,
+                                             marginBottom:'22px'}}>
+                                    Edit all portal-facing content — header text, welcome banner, footer, and logos. All changes persist in your browser after saving.
+                                </div>
+
+                                {/* ── SECTION: Text Fields ── */}
+                                <div style={S.sectionTitle}>
+                                    <span style={{background:'#EFF6FF',color:'#1E3A8A',padding:'3px 8px',
+                                                  borderRadius:'5px',fontSize:'10px'}}>TEXT</span>
+                                    Portal Content
+                                </div>
+
+                                <div style={S.field}>
+                                    <label style={S.label}>Portal Title <span style={{fontWeight:400,color:'#9CA3AF',textTransform:'none',letterSpacing:0}}>(shown in header bar)</span></label>
+                                    <input style={S.input} value={draft.portalTitle}
+                                        onChange={e => upd('portalTitle', e.target.value)}
+                                        placeholder="e.g. Financial Modeler Pro" />
+                                </div>
+
+                                <div style={S.field}>
+                                    <label style={S.label}>Portal Subtitle <span style={{fontWeight:400,color:'#9CA3AF',textTransform:'none',letterSpacing:0}}>(shown below title)</span></label>
+                                    <input style={S.input} value={draft.portalSubtitle}
+                                        onChange={e => upd('portalSubtitle', e.target.value)}
+                                        placeholder="e.g. Platform Hub" />
+                                </div>
+
+                                <div style={S.field}>
+                                    <label style={S.label}>Portal Description <span style={{fontWeight:400,color:'#9CA3AF',textTransform:'none',letterSpacing:0}}>(welcome banner body text)</span></label>
+                                    <textarea style={S.textarea} value={draft.portalDescription}
+                                        onChange={e => upd('portalDescription', e.target.value)}
+                                        placeholder="Describe your platform suite…" />
+                                </div>
+
+                                <div style={S.field}>
+                                    <label style={S.label}>Footer Text <span style={{fontWeight:400,color:'#9CA3AF',textTransform:'none',letterSpacing:0}}>(shown in portal footer bar)</span></label>
+                                    <input style={S.input} value={draft.footerText}
+                                        onChange={e => upd('footerText', e.target.value)}
+                                        placeholder="e.g. Professional Financial Modeling Suite" />
+                                </div>
+
+                                <div style={S.divider} />
+
+                                {/* ── SECTION: Logos ── */}
+                                <div style={S.sectionTitle}>
+                                    <span style={{background:'#F0FDF4',color:'#166534',padding:'3px 8px',
+                                                  borderRadius:'5px',fontSize:'10px'}}>LOGOS</span>
+                                    Logo Upload
+                                </div>
+
+                                <div style={{fontSize:'12px', color:'#6B7280', lineHeight:1.55, marginBottom:'16px'}}>
+                                    Upload PNG, JPG, SVG or WebP images, or use an emoji. Uploaded images are stored in your browser and replace the default logos immediately.
+                                </div>
+
+                                <LogoUploadZone prefix="portal"   title="Portal Logo (header bar)" />
+                                <div style={{height:'10px'}} />
+                                <LogoUploadZone prefix="platform" title="Platform Logo (inside REFM toolbar)" />
+
+                                <div style={S.divider} />
+
+                                {/* ── SECTION: Live Preview ── */}
+                                <div style={S.sectionTitle}>
+                                    <span style={{background:'#FFF7ED',color:'#92400E',padding:'3px 8px',
+                                                  borderRadius:'5px',fontSize:'10px'}}>PREVIEW</span>
+                                    Live Preview
+                                </div>
+
+                                {/* Header preview */}
+                                <div style={{background:'var(--color-primary-deep)', borderRadius:'8px',
+                                             padding:'11px 16px', display:'flex', alignItems:'center',
+                                             gap:'10px', marginBottom:'8px'}}>
+                                    <div style={{width:'32px', height:'32px', background:'var(--color-primary)',
+                                                 borderRadius:'8px', display:'flex', alignItems:'center',
+                                                 justifyContent:'center', flexShrink:0,
+                                                 overflow:'hidden', border:'1px solid rgba(255,255,255,0.15)'}}>
+                                        {draft.portalLogoType === 'image' && draft.portalLogoImage
+                                            ? <img src={draft.portalLogoImage} style={{width:'100%',height:'100%',objectFit:'contain'}} />
+                                            : <span style={{fontSize:'16px'}}>{draft.portalLogoEmoji || '💼'}</span>}
+                                    </div>
+                                    <div>
+                                        <div style={{fontWeight:700, color:'white', fontSize:'13px'}}>
+                                            {draft.portalTitle || '—'}
+                                        </div>
+                                        <div style={{fontSize:'9.5px', color:'rgba(255,255,255,0.38)',
+                                                     textTransform:'uppercase', letterSpacing:'0.06em'}}>
+                                            {draft.portalSubtitle || '—'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Welcome banner preview */}
+                                <div style={{background:'white', border:'1px solid #E5E7EB',
+                                             borderRadius:'8px', padding:'14px 16px',
+                                             borderLeft:'4px solid var(--color-primary)',
+                                             marginBottom:'8px'}}>
+                                    <div style={{fontWeight:700, color:'var(--color-heading)',
+                                                 fontSize:'14px', marginBottom:'5px'}}>
+                                        Welcome to {draft.portalTitle || '—'}
+                                    </div>
+                                    <div style={{fontSize:'12px', color:'#6B7280', lineHeight:1.6}}>
+                                        {draft.portalDescription || '—'}
+                                    </div>
+                                </div>
+
+                                {/* Footer preview */}
+                                <div style={{background:'#F9FAFB', border:'1px solid #E5E7EB',
+                                             borderRadius:'8px', padding:'10px 16px',
+                                             textAlign:'center', fontSize:'11px', color:'#9CA3AF'}}>
+                                    <strong style={{color:'#374151'}}>{draft.portalTitle || '—'}</strong>
+                                    {' · '}{draft.footerText || '—'}
+                                    {' · '}<span style={{color:'var(--color-success)',fontWeight:600}}>{userSubscription.platforms.length} Platform Active</span>
+                                </div>
+                            </>)}
+
+                            {/* ══════════════════════════════════════════
+                                TAB 2: PLATFORM TOOLBAR
+                                Name + icon displayed inside REFM platform
+                            ══════════════════════════════════════════ */}
+                            {activeSection === 'platform' && (<>
+                                <div style={{background:'#EFF6FF', border:'1px solid #BFDBFE',
+                                             borderRadius:'8px', padding:'10px 14px',
+                                             fontSize:'12px', color:'#1E40AF', lineHeight:1.55,
+                                             marginBottom:'22px'}}>
+                                    This controls the name and icon displayed in the toolbar <strong>inside the REFM platform</strong>. This is separate from the portal header branding above.
+                                </div>
+
+                                <div style={S.field}>
+                                    <label style={S.label}>Platform Name <span style={{fontWeight:400,color:'#9CA3AF',textTransform:'none',letterSpacing:0}}>(shown in the platform toolbar)</span></label>
+                                    <input style={S.input} value={draft.platformName || ''}
+                                        onChange={e => upd('platformName', e.target.value)}
+                                        placeholder="e.g. REFM Platform" />
+                                </div>
+
+                                <div style={S.field}>
+                                    <label style={S.label}>Platform Icon <span style={{fontWeight:400,color:'#9CA3AF',textTransform:'none',letterSpacing:0}}>(emoji shown next to platform name)</span></label>
+                                    <div style={{display:'flex', gap:'7px', flexWrap:'wrap', marginBottom:'10px'}}>
+                                        {['🏗️','🏢','🌆','🏙️','📐','💼','🔷','⬡','🏛️','📊'].map(icon => (
+                                            <button key={icon} onClick={() => upd('platformLogoEmoji', icon)}
+                                                style={{
+                                                    fontSize:'20px', padding:'7px', borderRadius:'8px',
+                                                    cursor:'pointer', border:'none', transition:'all 0.15s',
+                                                    background: draft.platformLogoEmoji===icon ? '#EFF6FF' : '#F9FAFB',
+                                                    boxShadow: draft.platformLogoEmoji===icon
+                                                        ? '0 0 0 2px #1E3A8A' : '0 0 0 1px #E5E7EB',
+                                                }}>
+                                                {icon}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <input style={{...S.input, maxWidth:'140px'}}
+                                        value={draft.platformLogoEmoji || ''}
+                                        onChange={e => upd('platformLogoEmoji', e.target.value)}
+                                        placeholder="Or type any emoji…" maxLength={4} />
+                                </div>
+
+                                <div style={S.divider} />
+
+                                {/* Toolbar live preview */}
+                                <div style={S.sectionTitle}>
+                                    <span style={{background:'#FFF7ED',color:'#92400E',padding:'3px 8px',
+                                                  borderRadius:'5px',fontSize:'10px'}}>PREVIEW</span>
+                                    Toolbar Preview
+                                </div>
+                                <div style={{background:'var(--color-primary-deep)', borderRadius:'8px',
+                                             padding:'0 16px', height:'42px', display:'flex',
+                                             alignItems:'center', gap:'10px',
+                                             boxShadow:'0 2px 8px rgba(0,0,0,0.2)'}}>
+                                    <div style={{width:'26px', height:'26px', background:'rgba(255,255,255,0.12)',
+                                                 borderRadius:'6px', display:'flex', alignItems:'center',
+                                                 justifyContent:'center', fontSize:'14px', flexShrink:0,
+                                                 overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)'}}>
+                                        {draft.platformLogoType === 'image' && draft.platformLogoImage
+                                            ? <img src={draft.platformLogoImage} style={{width:'100%',height:'100%',objectFit:'contain'}} />
+                                            : <span>{draft.platformLogoEmoji || '🏗️'}</span>}
+                                    </div>
+                                    <span style={{color:'white', fontWeight:700, fontSize:'11px',
+                                                  letterSpacing:'0.06em', textTransform:'uppercase'}}>
+                                        {draft.platformName || 'REFM Platform'}
+                                    </span>
+                                    <div style={{flex:1}} />
+                                    <div style={{background:'rgba(255,255,255,0.08)', borderRadius:'4px',
+                                                 padding:'3px 8px', fontSize:'10px', color:'rgba(255,255,255,0.45)'}}>
+                                        v40
+                                    </div>
+                                </div>
+                            </>)}
+
+                            {/* ══════════════════════════════════════════
+                                TAB 3: PLATFORM CARDS EDITOR
+                                Edit each card on the portal grid
+                            ══════════════════════════════════════════ */}
+                            {activeSection === 'platforms' && (() => {
+                                const draftPlatforms = (draft.platforms && draft.platforms.length)
+                                    ? draft.platforms
+                                    : PLATFORM_REGISTRY.map(p => ({ id: p.id, name: p.name, description: p.description, status: p.status }));
+
+                                const updPlatform = (id, field, value) => {
+                                    const updated = draftPlatforms.map(p =>
+                                        p.id === id ? { ...p, [field]: value } : p
+                                    );
+                                    upd('platforms', updated);
+                                };
+
+                                return (
+                                    <>
+                                        <div style={{background:'#EFF6FF', border:'1px solid #BFDBFE',
+                                                     borderRadius:'8px', padding:'10px 14px',
+                                                     fontSize:'12px', color:'#1E40AF', lineHeight:1.55,
+                                                     marginBottom:'22px'}}>
+                                            Edit the name, description, and status of each platform card shown on the portal. Changes apply after saving.
+                                        </div>
+
+                                        {PLATFORM_REGISTRY.map((reg, idx) => {
+                                            const p = draftPlatforms.find(x => x.id === reg.id) || reg;
+                                            return (
+                                                <div key={reg.id} style={{
+                                                    border:'1.5px solid #E5E7EB', borderRadius:'10px',
+                                                    padding:'16px 18px', marginBottom:'14px',
+                                                    background:'#FAFAFA',
+                                                }}>
+                                                    {/* Card Header */}
+                                                    <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px'}}>
+                                                        <div style={{width:'36px', height:'36px', borderRadius:'8px',
+                                                                     background: reg.iconBg, display:'flex', alignItems:'center',
+                                                                     justifyContent:'center', fontSize:'18px', flexShrink:0,
+                                                                     border:'1px solid #E5E7EB'}}>
+                                                            {reg.icon}
+                                                        </div>
+                                                        <div style={{flex:1}}>
+                                                            <div style={{fontSize:'11px', fontWeight:700, color:'#9CA3AF',
+                                                                         textTransform:'uppercase', letterSpacing:'0.06em'}}>
+                                                                Platform {idx + 1} · ID: {reg.id}
+                                                            </div>
+                                                        </div>
+                                                        {/* Status toggle */}
+                                                        <div style={{display:'flex', borderRadius:'6px', border:'1.5px solid #E5E7EB', overflow:'hidden', flexShrink:0}}>
+                                                            {['active','coming_soon'].map(s => (
+                                                                <button key={s}
+                                                                    onClick={() => updPlatform(reg.id, 'status', s)}
+                                                                    style={{
+                                                                        padding:'5px 11px', border:'none', cursor:'pointer',
+                                                                        fontFamily:'Inter,sans-serif', fontSize:'11px', fontWeight:700,
+                                                                        background: p.status === s ? (s === 'active' ? '#166534' : '#92400E') : '#F9FAFB',
+                                                                        color: p.status === s ? 'white' : '#9CA3AF',
+                                                                        transition:'all 0.15s',
+                                                                    }}>
+                                                                    {s === 'active' ? '✅ Active' : '🚧 Coming Soon'}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{marginBottom:'12px'}}>
+                                                        <label style={S.label}>Platform Name</label>
+                                                        <input style={S.input} value={p.name}
+                                                            onChange={e => updPlatform(reg.id, 'name', e.target.value)}
+                                                            placeholder={reg.name} />
+                                                    </div>
+
+                                                    <div>
+                                                        <label style={S.label}>Platform Description</label>
+                                                        <textarea style={S.textarea} value={p.description}
+                                                            onChange={e => updPlatform(reg.id, 'description', e.target.value)}
+                                                            placeholder={reg.description} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </>
+                                );
+                            })()}
+
+                        </div>
+
+                        {/* ── Footer Actions ── */}
+                        <div style={{padding:'14px 24px', borderTop:'1px solid #E5E7EB',
+                                     display:'flex', alignItems:'center', justifyContent:'space-between',
+                                     background:'#F9FAFB', flexShrink:0}}>
+                            <button onClick={handleReset}
+                                style={{padding:'8px 14px', border:'1px solid #E5E7EB',
+                                        borderRadius:'7px', background:'white', cursor:'pointer',
+                                        fontSize:'12px', color:'#9CA3AF', fontFamily:'Inter,sans-serif',
+                                        fontWeight:600, transition:'all 0.15s'}}>
+                                ↩ Reset to Defaults
+                            </button>
+                            <div style={{display:'flex', gap:'8px'}}>
+                                <button onClick={onClose}
+                                    style={{padding:'8px 18px', border:'1.5px solid #D1D5DB',
+                                            borderRadius:'7px', background:'white', cursor:'pointer',
+                                            fontSize:'13px', color:'#374151',
+                                            fontFamily:'Inter,sans-serif', fontWeight:600}}>
+                                    Cancel
+                                </button>
+                                <button onClick={handleSave}
+                                    style={{padding:'8px 22px',
+                                            background: saved ? '#166534' : 'var(--color-primary)',
+                                            color:'white', border:'none', borderRadius:'7px',
+                                            cursor:'pointer', fontSize:'13px', fontWeight:700,
+                                            fontFamily:'Inter,sans-serif', transition:'background 0.2s',
+                                            display:'flex', alignItems:'center', gap:'6px'}}>
+                                    {saved ? '✓ Saved!' : '💾 Save Branding'}
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  PORTAL APP COMPONENT
+        // ════════════════════════════════════════════════════════════
+        function PortalApp({ onLaunch, branding, onOpenBrandingSettings, isAdmin }) {
+            const [upgradeTarget, setUpgradeTarget] = React.useState(null);
+
+            const handleLaunch = (platformId) => {
+                if (!hasAccess(platformId)) { setUpgradeTarget(platformId); return; }
+                onLaunch(platformId);
+            };
+
+            // Resolve portal logo for display
+            const PortalLogoEl = () => {
+                if (branding.portalLogoType === 'image' && branding.portalLogoImage) {
+                    return (
+                        <div className="portal-header-logo-icon" style={{padding:0, overflow:'hidden'}}>
+                            <img src={branding.portalLogoImage}
+                                 style={{width:'100%', height:'100%', objectFit:'contain'}} />
+                        </div>
+                    );
+                }
+                return <div className="portal-header-logo-icon">{branding.portalLogoEmoji || '💼'}</div>;
+            };
+
+            return (
+                <div className="portal-root">
+                    {/* ── Portal Header ── */}
+                    <header className="portal-header">
+                        <div className="portal-header-logo">
+                            <PortalLogoEl />
+                            <div>
+                                <div className="portal-header-title">{branding.portalTitle}</div>
+                                <div className="portal-header-subtitle">{branding.portalSubtitle}</div>
+                            </div>
+                        </div>
+                        <div className="portal-header-spacer" />
+                        {isAdmin && (
+                            <button onClick={onOpenBrandingSettings}
+                                style={{marginRight:'10px', display:'inline-flex', alignItems:'center',
+                                        gap:'5px', height:'28px', padding:'0 12px',
+                                        borderRadius:'var(--radius-sm)', fontSize:'11px',
+                                        fontWeight:700, cursor:'pointer', letterSpacing:'0.03em',
+                                        border:'1px solid rgba(255,255,255,0.22)',
+                                        background:'rgba(255,255,255,0.09)',
+                                        color:'rgba(255,255,255,0.85)',
+                                        transition:'var(--transition)', fontFamily:'Inter,sans-serif'}}>
+                                🎨 Branding Settings
+                            </button>
+                        )}
+                        <span className="portal-header-version-pill">{userSubscription.plan} Plan</span>
+                    </header>
+
+                    {/* ── Portal Body ── */}
+                    <main className="portal-body">
+
+                        {/* Welcome Banner */}
+                        <div className="portal-welcome">
+                            <div>
+                                <h1>Welcome to {branding.portalTitle}</h1>
+                                <p>{branding.portalDescription}</p>
+                            </div>
+                        </div>
+
+                        {/* Platform Cards */}
+                        <div className="portal-section-label">Available Platforms</div>
+                        <div className="portal-grid">
+                            {getEffectivePlatforms(branding).map(platform => {
+                                const accessible   = hasAccess(platform.id);
+                                const isActive     = platform.status === 'active';
+                                const isLocked     = isActive && !accessible;
+                                const isComingSoon = platform.status === 'coming_soon';
+
+                                // Determine the icon to render for REFM platform
+                                const showCustomPlatformLogo = platform.id === 'refm'
+                                    && branding.platformLogoType === 'image'
+                                    && branding.platformLogoImage;
+
+                                return (
+                                    <div key={platform.id}
+                                         className={`portal-platform-card${isLocked ? ' locked' : ''}`}>
+                                        <div className="portal-card-accent" style={{background: platform.accentColor}} />
+                                        <div className="portal-card-body">
+                                            <div className="portal-card-icon-row">
+                                                <div className="portal-card-icon"
+                                                     style={{background: platform.iconBg, overflow:'hidden', padding:0}}>
+                                                    {showCustomPlatformLogo
+                                                        ? <img src={branding.platformLogoImage}
+                                                               style={{width:'100%',height:'100%',objectFit:'contain'}} />
+                                                        : (platform.id === 'refm' && branding.platformLogoType === 'emoji')
+                                                            ? <span style={{fontSize:'20px'}}>{branding.platformLogoEmoji || platform.icon}</span>
+                                                            : <span style={{fontSize:'20px'}}>{platform.icon}</span>
+                                                    }
+                                                </div>
+                                                <span className={`portal-card-status-pill ${isActive ? 'active' : 'soon'}`}>
+                                                    {isActive ? 'Active' : 'Coming Soon'}
+                                                </span>
+                                            </div>
+                                            <p className="portal-card-name">{platform.name}</p>
+                                            <p className="portal-card-desc">{platform.description}</p>
+                                        </div>
+                                        <div className="portal-card-footer">
+                                            {isComingSoon ? (
+                                                <button className="portal-launch-btn coming-soon" disabled>🚧 Coming Soon</button>
+                                            ) : isLocked ? (
+                                                <button className="portal-launch-btn upgrade"
+                                                    onClick={() => setUpgradeTarget(platform.id)}
+                                                    title="Your current plan does not include this platform">
+                                                    🔒 Upgrade to Access
+                                                </button>
+                                            ) : (
+                                                <button className="portal-launch-btn available"
+                                                    onClick={() => handleLaunch(platform.id)}>
+                                                    🚀 Launch Platform
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="portal-footer">
+                            <strong>{branding.portalTitle}</strong> · {branding.footerText} ·{' '}
+                            <span>{userSubscription.plan} Plan</span> ·{' '}
+                            <span style={{color:'var(--color-success)',fontWeight:'var(--fw-semibold)'}}>
+                                {userSubscription.platforms.length} Platform{userSubscription.platforms.length !== 1 ? 's' : ''} Active
+                            </span>
+                        </div>
+                    </main>
+
+                    {/* ── Upgrade Modal ── */}
+                    {upgradeTarget && (() => {
+                        const p = PLATFORM_REGISTRY.find(x => x.id === upgradeTarget);
+                        if (!p) return null;
+                        return (
+                            <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(3px)'}}
+                                onClick={() => setUpgradeTarget(null)}>
+                                <div style={{background:'var(--color-surface)',borderRadius:'var(--radius-md)',boxShadow:'var(--shadow-modal)',width:'420px',maxWidth:'95vw',overflow:'hidden'}}
+                                    onClick={e => e.stopPropagation()}>
+                                    <div style={{background:'var(--color-primary-deep)',padding:'var(--sp-3) var(--sp-4)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                                        <div>
+                                            <div style={{fontWeight:'var(--fw-bold)',color:'white',fontSize:'var(--font-section)'}}>{p.icon} {p.shortName}</div>
+                                            <div style={{fontSize:'var(--font-meta)',color:'rgba(255,255,255,0.5)',marginTop:'2px'}}>Platform access required</div>
+                                        </div>
+                                        <button onClick={() => setUpgradeTarget(null)} style={{background:'none',border:'none',color:'white',cursor:'pointer',fontSize:'1.2rem',lineHeight:1}}>✕</button>
+                                    </div>
+                                    <div style={{padding:'var(--sp-4)'}}>
+                                        <p style={{fontSize:'var(--font-body)',color:'var(--color-body)',lineHeight:1.6,margin:'0 0 var(--sp-3)'}}>
+                                            <strong>{p.name}</strong> is not included in your current <strong>{userSubscription.plan}</strong> plan.
+                                            Upgrade your subscription to unlock access to this platform.
+                                        </p>
+                                        <div style={{background:'var(--color-row-alt)',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border)',padding:'var(--sp-2)',marginBottom:'var(--sp-3)'}}>
+                                            <div style={{fontSize:'var(--font-micro)',color:'var(--color-meta)',marginBottom:'4px',fontWeight:'var(--fw-semibold)',textTransform:'uppercase',letterSpacing:'0.05em'}}>Current Plan</div>
+                                            <div style={{fontWeight:'var(--fw-bold)',color:'var(--color-heading)',fontSize:'var(--font-body)'}}>{userSubscription.plan} · {userSubscription.platforms.length} Platform{userSubscription.platforms.length !== 1 ? 's' : ''}</div>
+                                        </div>
+                                        <div style={{display:'flex',gap:'var(--sp-1)',justifyContent:'flex-end'}}>
+                                            <button onClick={() => setUpgradeTarget(null)}
+                                                style={{padding:'var(--sp-1) var(--sp-2)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-sm)',background:'var(--color-surface)',cursor:'pointer',fontSize:'var(--font-body)',color:'var(--color-body)',fontWeight:'var(--fw-medium)'}}>
+                                                Cancel
+                                            </button>
+                                            <button onClick={() => { setUpgradeTarget(null); alert('Contact your administrator or visit the billing portal to upgrade your subscription.'); }}
+                                                style={{padding:'var(--sp-1) var(--sp-2)',background:'var(--color-primary)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontSize:'var(--font-body)',fontWeight:'var(--fw-semibold)'}}>
+                                                Contact Sales →
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+            );
+        }
+
+        // ════════════════════════════════════════════════════════════
+        //  APP ROOT — manages portal ↔ platform routing
+        //  Holds branding state at the root level (persisted).
+        // ════════════════════════════════════════════════════════════
+        function AppRoot() {
+            const [activePlatform, setActivePlatform]       = React.useState(null);
+            const [branding, setBranding]                   = React.useState(() => loadBranding());
+            const [brandingPanelOpen, setBrandingPanelOpen] = React.useState(false);
+            // Mirror the platform role so portal knows if admin
+            const [currentUserRole, setCurrentUserRole]     = React.useState(ROLES.ADMIN);
+            const isAdmin = currentUserRole === ROLES.ADMIN;
+
+            const launchPlatform = (platformId) => {
+                setActivePlatform(platformId);
+                document.body.classList.add('refm-active');
+            };
+
+            const backToPortal = (role) => {
+                setActivePlatform(null);
+                document.body.classList.remove('refm-active');
+                // Sync role back so branding button visibility stays consistent
+                if (role) setCurrentUserRole(role);
+            };
+
+            const handleBrandingSave = (newBranding) => {
+                setBranding(newBranding);
+                saveBranding(newBranding);
+            };
+
+            // Portal view
+            if (activePlatform === null) {
+                return (
+                    <>
+                        <PortalApp
+                            onLaunch={launchPlatform}
+                            branding={branding}
+                            isAdmin={isAdmin}
+                            onOpenBrandingSettings={() => setBrandingPanelOpen(true)}
+                        />
+                        {brandingPanelOpen && (
+                            <BrandingSettingsPanel
+                                branding={branding}
+                                onSave={handleBrandingSave}
+                                onClose={() => setBrandingPanelOpen(false)}
+                                isAdmin={isAdmin}
+                            />
+                        )}
+                    </>
+                );
+            }
+
+            // REFM platform
+            if (activePlatform === 'refm') {
+                return <RealEstatePlatform
+                    onBackToPortal={backToPortal}
+                    branding={branding}
+                    onBrandingChange={handleBrandingSave}
+                    initialRole={currentUserRole}
+                />;
+            }
+
+            // Fallback (future platforms)
+            return (
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:'var(--sp-2)'}}>
+                    <div style={{fontSize:'3rem'}}>🚧</div>
+                    <div style={{fontWeight:'var(--fw-bold)',color:'var(--color-heading)'}}>Platform not yet available</div>
+                    <button onClick={() => backToPortal()} style={{marginTop:'var(--sp-1)',padding:'var(--sp-1) var(--sp-2)',background:'var(--color-primary)',color:'white',border:'none',borderRadius:'var(--radius-sm)',cursor:'pointer',fontWeight:'var(--fw-semibold)',fontSize:'var(--font-body)'}}>
+                        ← Back to Portal
+                    </button>
+                </div>
+            );
+        }
+
+                function RealEstatePlatform({ onBackToPortal, branding: rootBranding, onBrandingChange, initialRole }) {
             // State Management
             const [activeModule, setActiveModule] = useState('dashboard');
             const [activeTab, setActiveTab] = useState('timeline');
@@ -1099,15 +2092,15 @@
             const [sidebarSubOpen, setSidebarSubOpen] = useState(true);
 
             // ── RBAC: Role state ──
-            const [currentUserRole, setCurrentUserRole] = useState(ROLES.ADMIN);
+            const [currentUserRole, setCurrentUserRole] = useState(initialRole || ROLES.ADMIN);
             const [rbacModalOpen, setRbacModalOpen] = useState(false);
             const [rbacSelectedRole, setRbacSelectedRole] = useState(ROLES.ADMIN);
 
-            // ── Branding state (Admin-only) ──
-            const [brandName, setBrandName] = useState('REFM Platform');
-            const [brandIcon, setBrandIcon] = useState('🏗️');
-            const [brandNameDraft, setBrandNameDraft] = useState('REFM Platform');
-            const [brandIconDraft, setBrandIconDraft] = useState('🏗️');
+            // ── Branding state (Admin-only) — synced from portal root branding ──
+            const [brandName, setBrandName] = useState(() => (rootBranding && rootBranding.platformName) ? rootBranding.platformName : 'REFM Platform');
+            const [brandIcon, setBrandIcon] = useState(() => (rootBranding && rootBranding.platformLogoEmoji) ? rootBranding.platformLogoEmoji : '🏗️');
+            const [brandNameDraft, setBrandNameDraft] = useState(() => (rootBranding && rootBranding.platformName) ? rootBranding.platformName : 'REFM Platform');
+            const [brandIconDraft, setBrandIconDraft] = useState(() => (rootBranding && rootBranding.platformLogoEmoji) ? rootBranding.platformLogoEmoji : '🏗️');
 
             // Derived permission checker
             const can = (permission) => !!(PERMISSIONS[currentUserRole] && PERMISSIONS[currentUserRole][permission]);
@@ -3917,19 +4910,40 @@
                         const verName = activeVer?.name || null;
                         return (
                         <div className="pm-toolbar">
+                            {/* ← Back to Portal button */}
+                            {onBackToPortal && (
+                                <button
+                                    className="portal-back-btn"
+                                    title="Return to Financial Modeler Pro Portal"
+                                    onClick={onBackToPortal}
+                                >
+                                    ◂ Portal
+                                </button>
+                            )}
+                            {onBackToPortal && <div className="pm-divider"></div>}
                             {can('canChangeBranding') ? (
                                 <button
                                     className="pm-brand"
                                     title="Admin: Click to change platform branding"
                                     onClick={() => setPmModal('branding')}
-                                    style={{background:'none',border:'none',cursor:'pointer',color:'white',padding:'2px 6px',borderRadius:'4px',transition:'background 0.15s',display:'inline-flex',alignItems:'center',gap:'4px'}}
+                                    style={{background:'none',border:'none',cursor:'pointer',color:'white',padding:'2px 6px',borderRadius:'4px',transition:'background 0.15s',display:'inline-flex',alignItems:'center',gap:'6px'}}
                                     onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.12)'}
                                     onMouseLeave={e=>e.currentTarget.style.background='none'}
                                 >
-                                    {brandIcon} {brandName}<span style={{fontSize:'8px',opacity:0.5,marginLeft:'2px'}}>✏️</span>
+                                    {rootBranding && rootBranding.platformLogoType === 'image' && rootBranding.platformLogoImage
+                                        ? <img src={rootBranding.platformLogoImage} style={{width:'18px',height:'18px',objectFit:'contain',borderRadius:'3px',flexShrink:0}} />
+                                        : <span>{brandIcon}</span>
+                                    }
+                                    {brandName}<span style={{fontSize:'8px',opacity:0.5,marginLeft:'2px'}}>✏️</span>
                                 </button>
                             ) : (
-                                <span className="pm-brand">{brandIcon} {brandName}</span>
+                                <span className="pm-brand" style={{display:'inline-flex',alignItems:'center',gap:'6px'}}>
+                                    {rootBranding && rootBranding.platformLogoType === 'image' && rootBranding.platformLogoImage
+                                        ? <img src={rootBranding.platformLogoImage} style={{width:'18px',height:'18px',objectFit:'contain',borderRadius:'3px',flexShrink:0}} />
+                                        : <span>{brandIcon}</span>
+                                    }
+                                    {brandName}
+                                </span>
                             )}
                             <div className="pm-divider"></div>
                             <button
@@ -4997,8 +6011,14 @@
                                     <button onClick={() => { setBrandNameDraft(brandName); setBrandIconDraft(brandIcon); setPmModal(null); }}
                                         style={{padding:'var(--sp-1) var(--sp-2)',border:'1px solid #d1d5db',borderRadius:'var(--radius-sm)',background:'white',cursor:'pointer',fontSize:'var(--font-body)'}}>Cancel</button>
                                     <button onClick={() => {
-                                        setBrandName(brandNameDraft.trim() || 'REFM Platform');
-                                        setBrandIcon(brandIconDraft.trim() || '🏗️');
+                                        const newName = brandNameDraft.trim() || 'REFM Platform';
+                                        const newIcon = brandIconDraft.trim() || '🏗️';
+                                        setBrandName(newName);
+                                        setBrandIcon(newIcon);
+                                        // Persist to root branding store
+                                        if (onBrandingChange && rootBranding) {
+                                            onBrandingChange({ ...rootBranding, platformName: newName, platformLogoEmoji: newIcon, platformLogoType: 'emoji' });
+                                        }
                                         setPmModal(null);
                                         showToast('🎨 Branding updated', 'var(--color-primary-deep)');
                                     }}
@@ -8597,7 +9617,7 @@
             );
         }
 
-        ReactDOM.render(<RealEstatePlatform />, document.getElementById('root'));
+        ReactDOM.render(<AppRoot />, document.getElementById('root'));
     </script>
 </body>
 </html>
